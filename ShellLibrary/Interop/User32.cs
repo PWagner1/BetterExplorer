@@ -2983,7 +2983,7 @@ public static extern bool UpdateWindow(IntPtr hWnd);
     //
     [DllImport("user32.dll")]
     static extern int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", PreserveSig = true)]
     public static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)]

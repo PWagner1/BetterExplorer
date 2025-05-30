@@ -131,7 +131,8 @@ namespace ShellControls {
 		/// </para>
 		/// </remarks>
 		[Category("Behaviour")]
-		public string FilterItems {
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string FilterItems {
 			get { return m_FilterItems; }
 			set {
 				int selection;

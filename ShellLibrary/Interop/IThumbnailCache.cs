@@ -17,7 +17,7 @@ namespace BExplorer.Shell.Interop {
 				[In] uint cxyRequestedThumbSize,
 				[In] WTS_FLAGS flags /*default:  WTS_FLAGS.WTS_EXTRACT*/,
 				[Out][MarshalAs(UnmanagedType.Interface)] out ISharedBitmap ppvThumb,
-				[Out] WTS_CACHEFLAGS pOutFlags,
+				[Out] out WTS_CACHEFLAGS pOutFlags,
 				[Out] WTS_THUMBNAILID pThumbnailID
 		);
 		[PreserveSig]

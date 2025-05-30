@@ -408,6 +408,7 @@ namespace ShellControls.ShellContextMenu {
       Marshal.Release(this._Result);
       this._Result = IntPtr.Zero;
     }
+
     public void ShowContextMenu(Point pos, CMF aditionalFlags, bool IsOnEmpty = false) {
       var cmenu = new AcrylicShellContextMenu();
       cmenu.Placement = PlacementMode.MousePoint;

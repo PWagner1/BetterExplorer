@@ -3,6 +3,7 @@
 # IDE1006: Naming Styles
 dotnet_diagnostic.IDE1006.severity = none
 dotnet_diagnostic.SA1121.severity = none
+dotnet_diagnostic.CA1416.severity = none
 
 [*.cs]
 #### Naming styles ####
@@ -67,6 +68,7 @@ csharp_style_expression_bodied_indexers = true:silent
 csharp_style_expression_bodied_accessors = true:silent
 csharp_style_expression_bodied_lambdas = true:silent
 csharp_style_expression_bodied_local_functions = false:silent
+csharp_prefer_system_threading_lock = true:suggestion
 
 [*.{cs,vb}]
 #### Naming styles ####

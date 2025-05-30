@@ -676,7 +676,7 @@ namespace BExplorer.Shell.Interop {
     /// <param name="uFlags">Flags that, when combined bitwise with SHCNF_TYPE, indicate the meaning of the dwItem1 and dwItem2 parameters.</param>
     /// <param name="dwItem1">Optional. First event-dependent value.</param>
     /// <param name="dwItem2">Optional. Second event-dependent value.</param>
-    [DllImport("shell32.dll")]
+    [DllImport("shell32.dll", CharSet = CharSet.Auto)]
     public static extern void SHChangeNotify(HChangeNotifyEventID wEventId, HChangeNotifyFlags uFlags, IntPtr dwItem1, IntPtr dwItem2);
 
     [DllImport("shell32.dll", CharSet = CharSet.Auto)]

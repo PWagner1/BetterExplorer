@@ -184,7 +184,8 @@ namespace WpfDocumentPreviewer {
 
 		internal const string GUID_ISHELLITEM = "43826d1e-e718-42ee-bc55-a1e261c37bfe";
 		private static string _FileName;
-		public string FileName {
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string FileName {
 			get { return _FileName; }
 			set {
 				Guid? guid = Guid.Empty;

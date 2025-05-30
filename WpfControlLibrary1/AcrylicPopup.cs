@@ -186,26 +186,35 @@ namespace BetterExplorerControls {
       hwnd.AddHook(WndProcHooked);
       this.Handle = hwnd.Handle;
       hwnd.CompositionTarget.BackgroundColor = Color.FromArgb(0, 0, 0, 0);
+      this._parentPopup.AllowsTransparency = true;
       this.Background = Brushes.Transparent;
       AcrylicHelper.SetBlur(hwnd.Handle, AcrylicHelper.AccentFlagsType.Window, AcrylicHelper.AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND, (uint)Application.Current.Resources["SystemAcrylicTint"]);
-      var nonClientArea = new Dwmapi.MARGINS(new Thickness(-1));
-      Dwmapi.DwmExtendFrameIntoClientArea(hwnd.Handle, ref nonClientArea);
-      //var preference = this.IsSmallRounding ? RibbonWindow.DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUNDSMALL : RibbonWindow.DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUND;
+      var nonClientArea = new Dwmapi.MARGINS(new Thickness(0));
       var preference = (Int32)Dwmapi.DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUND;
       Dwmapi.DwmSetWindowAttribute(hwnd.Handle, Dwmapi.DWMWINDOWATTRIBUTE.DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(uint));
+      var pv = 2;
+      Dwmapi.DwmSetWindowAttribute(hwnd.Handle, Dwmapi.DWMWINDOWATTRIBUTE.DWMWA_TRANSITIONS_FORCEDISABLED, ref pv, sizeof(uint));
+      Dwmapi.DwmExtendFrameIntoClientArea(hwnd.Handle, ref nonClientArea);
     }
 
+
     private RawInputReceiverWindow _Window;
+
+    void OnPreviewMouseDown(Object sender, MouseButtonEventArgs e) {
+      this.ProcessMouseHookAction();
+    }
     private void OnOpened(Object sender, EventArgs e) {
       dele = new WinEventDelegate(WinEventProc);
       this._winHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, dele, 0, 0, WINEVENT_OUTOFCONTEXT);
 
-      var thread = new Thread(() => {
-        MouseHook.Start();
-        System.Windows.Threading.Dispatcher.Run();
-      });
-      thread.Start();
-      MouseHook.MouseAction += MouseHookOnMouseAction;
+      EventManager.RegisterClassHandler(typeof(Window), Window.PreviewMouseDownEvent, new MouseButtonEventHandler(OnPreviewMouseDown));
+
+      //var thread = new Thread(() => {
+      //MouseHook.Start();
+      //  System.Windows.Threading.Dispatcher.Run();
+      //});
+      //thread.Start();
+      //MouseHook.MouseAction += MouseHookOnMouseAction;
       //if (!this._PositionSet) {
       //  var mousePos = AcrylicPopup.GetMousePosition();
       //  GetWindowRect(this.Handle, out var rect);
@@ -221,8 +230,8 @@ namespace BetterExplorerControls {
     }
 
     private void OnClosed(object? sender, EventArgs e) {
-      MouseHook.stop();
-      MouseHook.MouseAction -= MouseHookOnMouseAction;
+      //MouseHook.stop();
+      //MouseHook.MouseAction -= MouseHookOnMouseAction;
       this.OnMenuClosed?.Invoke(this, EventArgs.Empty);
       UnhookWinEvent(this._winHook);
     }
@@ -248,6 +257,9 @@ namespace BetterExplorerControls {
     }
 
     protected DependencyObject IsElementPartOfPopup(IInputElement element) {
+      if (element == null) {
+        return null;
+      }
       var parent = VisualTreeHelper.GetParent((DependencyObject)element);
       while (parent != null && !(parent is AcrylicPopup)) {
         parent = VisualTreeHelper.GetParent(parent);
@@ -262,10 +274,10 @@ namespace BetterExplorerControls {
     private void MouseHookOnMouseAction(object? sender, LLMouseHookArgs e) {
       var t = new Thread((() => {
         //Thread.Sleep(1);
-        this.Dispatcher.Invoke(DispatcherPriority.Normal, (Action)(
+        this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action)(
           this.ProcessMouseHookAction));
       }));
-
+      t.SetApartmentState(ApartmentState.STA);
       t.Start();
     }
 

@@ -6,12 +6,19 @@ using System.Windows.Media.Imaging;
 using BExplorer.Shell.Interop;
 using ShellLibrary.Interop;
 using Windows.Storage;
+using ThumbnailGenerator;
 using WPFUI.Win32;
 using Size = System.Drawing.Size;
 
 namespace BExplorer.Shell._Plugin_Interfaces {
 
   public interface IListItemEx : IEnumerable<IListItemEx>, IEquatable<IListItemEx>, IEqualityComparer<IListItemEx> {
+
+    System.Data.SQLite.SQLiteConnection m_dbConnection { get; set; }
+
+    IntPtr hThumbnail(Int32 size, out Boolean isDifferentSize);
+
+    void hThumbnailSave(Byte[] bytes, Int32 size);
 
     IntPtr ParentPIDL { get; set; }
 
@@ -35,6 +42,7 @@ namespace BExplorer.Shell._Plugin_Interfaces {
 
     /// <summary>The file system path</summary>
     String FileSystemPath { get; }
+    String CompareID { get; set; }
 
     Int32 ItemIndex { get; set; }
 
@@ -43,6 +51,8 @@ namespace BExplorer.Shell._Plugin_Interfaces {
 
     /// <summary>Does the current item need to be refreshed in the ShellListView</summary>
     Boolean IsNeedRefreshing { get; set; }
+
+    Boolean IsThumbnailExtracting { get; set; }
 
     /// <summary>Assigned values but never used</summary>
     Boolean IsInvalid { get; set; }
@@ -55,6 +65,8 @@ namespace BExplorer.Shell._Plugin_Interfaces {
 
 
     Boolean IsThumbnailLoaded { get; set; }
+
+    Boolean IsNeedLoadFromStorage { get; set; }
 
     /// <summary>Set but never used</summary>
     Boolean IsInitialised { get; set; } //TODO: Use this property or delete it
@@ -161,9 +173,11 @@ namespace BExplorer.Shell._Plugin_Interfaces {
 
     HResult ExtractAndDrawThumbnail(IntPtr hdc, uint iconSize, out WTS_CACHEFLAGS flags, User32.RECT iconBounds, out bool retrieved, bool isHidden, bool isRefresh = false); //TODO: Use or Delete
 
+    HResult GenerateAndCacheThumbnail(uint iconSize, Boolean inCacheOnly, out WTS_CACHEFLAGS flags);
+
     HResult NavigationStatus { get; set; }
 
-    IntPtr GetHBitmap(int iconSize, bool isThumbnail, bool isForce = false, bool isBoth = false, Boolean isForThumbnailSource = false);
+    IntPtr GetHBitmap(int iconSize, bool isThumbnail, out WindowsThumbnailProvider.HResult hr, bool isForce = false, bool isBoth = false, Boolean isForThumbnailSource = false);
 
     Boolean RefreshThumb(int iconSize, out WTS_CACHEFLAGS flags);
 

@@ -95,13 +95,13 @@
               <Setter TargetName="PART_Checked" Property="Visibility" Value="Visible" />
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="PART_Border" Property="Background" Value="#66434242" />
+              <Setter TargetName="PART_Border" Property="Background" Value="#49696868" />
             </Trigger>
             <Trigger Property="IsChildMenuOpened" Value="True">
-              <Setter TargetName="PART_Border" Property="Background" Value="#66434242" />
+              <Setter TargetName="PART_Border" Property="Background" Value="#49696868" />
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="PART_Border" Property="Background" Value="#66434242" />
+              <Setter TargetName="PART_Border" Property="Background" Value="#49696868" />
             </Trigger>
             <DataTrigger Binding="{Binding IsSubMenu}" Value="True">
               <Setter TargetName="PART_SubmenuArrow" Property="Visibility" Value="Visible" />
@@ -136,20 +136,16 @@
           <Grid x:Name="Root" Margin="0">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="1.5"/>
             </Grid.ColumnDefinitions>
-            <Border x:Name="brSeparator" Grid.Column="1" Width="1.5" BorderThickness="1" CornerRadius="0.75" HorizontalAlignment="Center" Margin="0,8,0,8">
-              <Border.BorderBrush>
-                <SolidColorBrush Opacity="0.0" Color="{DynamicResource ControlFillColorDefault}" />
-              </Border.BorderBrush>
+            <Border x:Name="brSeparator" Width="2" BorderThickness="0,0,1,0" HorizontalAlignment="Right" Margin="0,10,1,10" BorderBrush="{DynamicResource ControlElevationBorderBrush}">
             </Border>
             <Border x:Name="tabBorder" Grid.Column="0"
                     MinHeight="36"
-                    Margin="1,0,1,0"
+                    Margin="2,1,2,1"
                     Padding="6"
                     Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="0.5"
+                    BorderThickness="0"
                     CornerRadius="4" WindowChrome.IsHitTestVisibleInChrome="True">
               <Grid>
                 <Grid.ColumnDefinitions>
@@ -258,7 +254,7 @@
               <Setter TargetName="PART_Icon" Property="Visibility" Value="Collapsed" />
               <Setter TargetName="PART_Spinner" Property="Visibility" Value="Visible" />
             </Trigger>
-            <DataTrigger Binding="{Binding Converter={StaticResource TabIndexConverter}, RelativeSource={RelativeSource Self}}" Value="Last">
+            <DataTrigger Binding="{Binding Path=IsSeparatorVisible, RelativeSource={RelativeSource Self}}" Value="False">
               <Setter TargetName="brSeparator" Property="Visibility" Value="Collapsed" />
             </DataTrigger>
             <Trigger Property="IsSelected" Value="True">
@@ -281,6 +277,23 @@
                 <RemoveStoryboard BeginStoryboardName="sbIsSelected"/>
               </Trigger.ExitActions>
             </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsSelected" Value="False" />
+                <Condition Property="IsMouseOver" Value="True" />
+              </MultiTrigger.Conditions>
+              <MultiTrigger.Setters>
+                <Setter Property="IsItemMouseHover" Value="True" />
+              </MultiTrigger.Setters>
+            </MultiTrigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsSelected" Value="True" />
+              </MultiTrigger.Conditions>
+              <MultiTrigger.Setters>
+                <Setter Property="IsItemSelected" Value="True" />
+              </MultiTrigger.Setters>
+            </MultiTrigger>
             <MultiTrigger>
               <MultiTrigger.Conditions>
                 <Condition Property="IsSelected" Value="False" />

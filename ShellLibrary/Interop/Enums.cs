@@ -274,6 +274,15 @@ namespace BExplorer.Shell.Interop {
     Video = 4,
   }
 
+  public enum StorageSyncStatus {
+    Unknown = 0,
+    Synced = 1,
+    InProgress = 2,
+    Paused = 3,
+    Error = 4,
+    Placeholder = 5,
+  }
+
 
   public enum LVBKIF : int {
     SOURCE_NONE = 0x00000000,

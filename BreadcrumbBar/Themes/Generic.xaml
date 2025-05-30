@@ -422,7 +422,7 @@
                       TargetType="ContextMenu">
                       <mwt:SystemDropShadowChrome
                         Name="Shdw"
-                        MaxHeight="400"
+                        MaxHeight="410"
                         SnapsToDevicePixels="True"
                         Color="#00FFFFFF">
                         <Border

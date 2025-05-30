@@ -119,7 +119,7 @@ namespace ShellControls {
             64,
             ShellThumbnailFormatOption.Default,
             ShellThumbnailRetrievalOption.Default);
-          image.Freeze();
+          image?.Freeze();
           this.Image = image;
           RaisePropertyChanged("Image");
         }
@@ -173,8 +173,8 @@ namespace ShellControls {
     public static void HideTooltip() {
       if (Instance != null) {
         Instance.ItemIndex = -1;
-        Instance._DelayTimer.Stop();
         Instance.IsOpen = false;
+        Instance._DelayTimer.Stop();
         Instance = null;
       }
     }

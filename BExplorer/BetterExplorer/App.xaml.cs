@@ -137,12 +137,14 @@ namespace BetterExplorer {
       base.OnSessionEnding(e);
     }
 
+    void OnPreviewMouseDown(Object sender, MouseButtonEventArgs e) {
+      
+    }
     /// <summary>
     /// On app start
     /// </summary>
     /// <param name="e">Startup EventArgs</param>
     protected override void OnStartup(StartupEventArgs e) {
-
       var dllPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
       if (IntPtr.Size == 8) {
         dllPath = Path.Combine(dllPath, "X64");
@@ -156,19 +158,19 @@ namespace BetterExplorer {
       var updaterThread = new Thread(new ThreadStart(this.RunAutomaticUpdateChecker));
       updaterThread.Start();
 
-      ToastNotificationManagerCompat.OnActivated += toastArgs => {
-        // Obtain the arguments from the notification
-        ToastArguments args = ToastArguments.Parse(toastArgs.Argument);
+      //ToastNotificationManagerCompat.OnActivated += toastArgs => {
+      //  // Obtain the arguments from the notification
+      //  ToastArguments args = ToastArguments.Parse(toastArgs.Argument);
 
-        // Obtain any user input (text boxes, menu selections) from the notification
-        var userInput = toastArgs.UserInput;
+      //  // Obtain any user input (text boxes, menu selections) from the notification
+      //  var userInput = toastArgs.UserInput;
 
-        // Need to dispatch to UI thread if performing UI operations
-        Application.Current.Dispatcher.Invoke(delegate {
-          // TODO: Show the corresponding content
-          MessageBox.Show("Toast activated. Args: " + toastArgs.Argument);
-        });
-      };
+      //  // Need to dispatch to UI thread if performing UI operations
+      //  Application.Current.Dispatcher.Invoke(delegate {
+      //    // TODO: Show the corresponding content
+      //    MessageBox.Show("Toast activated. Args: " + toastArgs.Argument);
+      //  });
+      //};
 
       Settings.BESettings.LoadSettings();
 

@@ -29,11 +29,13 @@ using ShellControls.ShellContextMenu;
 using ShellLibrary.Interop;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using Windows.UI.ViewManagement;
 using WPFUI.Win32;
 using Application = System.Windows.Application;
 using Color = System.Drawing.Color;
 using DataObject = BExplorer.Shell.DataObject;
 using DPoint = System.Drawing.Point;
+using DragDropEffects = System.Windows.DragDropEffects;
 using F = System.Windows.Forms;
 using FileAttributes = BExplorer.Shell.FileAttributes;
 using ImageList = BExplorer.Shell.ImageList;
@@ -100,9 +102,14 @@ namespace ShellControls.ShellListView {
     public Dictionary<PROPERTYKEY, Collumns?> AllAvailableColumns;
     public List<Collumns> Collumns = new List<Collumns>();
     public List<ListViewGroupEx> Groups = new List<ListViewGroupEx>();
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public LVTheme Theme { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Boolean IsRenameNeeded { get; set; }
+
+    // public Boolean IsLibraryInModify { get; set; }
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 
     // public Boolean IsLibraryInModify { get; set; }
     public Boolean IsFileExtensionShown { get; set; }
@@ -111,8 +118,15 @@ namespace ShellControls.ShellListView {
     public Boolean IsNavigationCancelRequested = false;
     public Boolean IsNavigationInProgress = false;
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Boolean IsGroupsEnabled { get; set; }
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public FileOperationDialog OperationDialog { get; set; }
+
+    // public Boolean IsTraditionalNameGrouping { get; set; }
+
+    /// <summary> Returns the key jump string as it currently is.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 
     // public Boolean IsTraditionalNameGrouping { get; set; }
 
@@ -133,26 +147,37 @@ namespace ShellControls.ShellListView {
     /// the <see cref="ShellView" />.
     /// </summary>
     [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public IListItemEx CurrentFolder { get; private set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Int32 IconSize { get; private set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public List<IListItemEx> Items { get; private set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public String LastSortedColumnId { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public SortOrder LastSortOrder { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Collumns LastGroupCollumn { get; private set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public SortOrder LastGroupOrder { get; private set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public IntPtr LVHandle { get; private set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public IntPtr LVHeaderHandle { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public ObservableCollectionEx<LVItemColor> LVItemsColorCodes { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public System.Windows.Controls.GridView Header {
       get => this._Header;
       set {
@@ -181,6 +206,8 @@ namespace ShellControls.ShellListView {
     User32.WinEventDelegate dele = null;
     private IntPtr _winHook;
     private static readonly IntPtr _BlackBrush = Gdi32.CreateSolidBrush(0);
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public System.Data.SQLite.SQLiteConnection m_dbConnection { get; set; }
 
 
     /// <summary>Returns the currently selected item and removes any items in <see cref="_SelectedIndexes"/> not in <see cref="Items"/>  </summary>
@@ -206,6 +233,10 @@ namespace ShellControls.ShellListView {
     /// <summary>
     /// Gets or sets a value indicating whether a checkboxes should be shown for allowing selection
     /// </summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    /// <summary>
+    /// Gets or sets a value indicating whether a checkboxes should be shown for allowing selection
+    /// </summary>
     public Boolean ShowCheckboxes {
       get => this._ShowCheckBoxes;
 
@@ -222,6 +253,7 @@ namespace ShellControls.ShellListView {
       }
     }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Boolean ShowHidden {
       get => this._ShowHidden;
 
@@ -241,7 +273,7 @@ namespace ShellControls.ShellListView {
         switch (value) {
           case ShellViewStyle.ExtraLargeIcon:
             User32.SendMessage(this.LVHandle, MSG.LVM_SETVIEW, (Int32)LV_VIEW.LV_VIEW_ICON, 0);
-            this.ResizeIcons(256);
+            this.ResizeIcons(250);
             break;
 
           case ShellViewStyle.LargeIcon:
@@ -382,6 +414,7 @@ namespace ShellControls.ShellListView {
 
     private Boolean _ItemForRealNameIsAny => this._ItemForRename != -1;
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public Int32 _ItemForRename { get; set; }
 
     private Boolean _IsCanceledOperation { get; set; }
@@ -400,6 +433,7 @@ namespace ShellControls.ShellListView {
     private BackgroundWorker _Bw = new BackgroundWorker();
 
     private ShellViewStyle _MView;
+    public Boolean _IsInScrooll = false;
 
     private F.Timer _SelectionTimer = new F.Timer();
     private ImageList _Small = new ImageList(ImageListSize.SystemSmall);
@@ -413,6 +447,7 @@ namespace ShellControls.ShellListView {
     public Dictionary<String, Dictionary<IListItemEx, List<String>>> BadgesData;
     private readonly QueueEx<Tuple<ItemUpdateType, IListItemEx>> _ItemsQueue = new QueueEx<Tuple<ItemUpdateType, IListItemEx>>();
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public IListItemEx RequestedCurrentLocation { get; set; }
 
     private readonly List<String> _TemporaryFiles = new List<String>();
@@ -447,7 +482,7 @@ namespace ShellControls.ShellListView {
       this.SmallImageList = new ImageListEx(16);
       this.LargeImageList.AttachToListView(this, 0);
       this.SmallImageList.AttachToListView(this, 1);
-      this._ResetTimer.Interval = 450;
+      this._ResetTimer.Interval = 1000;
       this._ResetTimer.Tick += this.resetTimer_Tick;
       this.MouseUp += this.ShellView_MouseUp;
       this._SelectionTimer.Interval = 100;
@@ -510,7 +545,7 @@ namespace ShellControls.ShellListView {
 
               // if (itemForDelete != null) {
               this.Items.Remove(obj.Item2);
-              this._AddedItems.Remove(obj.Item2.PIDL);
+              this._AddedItems.Remove(obj.Item2.ParsingName.GetHashCode());
 
               // TODO: Make this to work in threaded environment
               // itemForDelete.Dispose();
@@ -526,8 +561,10 @@ namespace ShellControls.ShellListView {
               if (obj.Item2.IsInCurrentFolder(this.CurrentFolder) &&
                   !this.Items.Contains(obj.Item2, new ShellItemEqualityComparer())) {
                 obj.Item2.ItemIndex = this.Items.Count;
-                this.Items.Add(obj.Item2);
-                this._AddedItems.Add(obj.Item2.PIDL);
+                if (this.Items.All(a => a.ParsingName != obj.Item2.ParsingName)) {
+                  this.Items.Add(obj.Item2);
+                  this._AddedItems.Add(obj.Item2.ParsingName.GetHashCode());
+                }
               }
 
               isChanged = true;
@@ -540,8 +577,11 @@ namespace ShellControls.ShellListView {
                   if (!this.Items.Contains(obj.Item2, new ShellItemEqualityComparer()) &&
                       !String.IsNullOrEmpty(obj.Item2.ParsingName)) {
                     obj.Item2.ItemIndex = this.Items.Count;
-                    this.Items.Add(obj.Item2);
-                    this._AddedItems.Add(obj.Item2.PIDL);
+                    if (this.Items.All(a => a.ParsingName != obj.Item2.ParsingName)) {
+                      this.Items.Add(obj.Item2);
+                      this._AddedItems.Add(obj.Item2.ParsingName.GetHashCode());
+                    }
+
                     obj.Item2.Dispose();
                   }
                 } else {
@@ -640,6 +680,8 @@ namespace ShellControls.ShellListView {
     private void selectionTimer_Tick(Object sender, EventArgs e) {
       (sender as F.Timer)?.Stop();
       this.BeginInvoke((Action)(() => {
+        this._IsInScrooll = false;
+        //this.LargeImageList.ResetEvent.Set();
         this.OnSelectionChanged();
         this.KeyJumpTimerDone?.Invoke(this, EventArgs.Empty);
       }));
@@ -652,12 +694,13 @@ namespace ShellControls.ShellListView {
 
     private void resetTimer_Tick(Object sender, EventArgs e) {
       this.BeginInvoke((Action)(() => {
+        this._IsInScrooll = false;
         (sender as F.Timer)?.Stop();
         this._ResetEvent.Set();
-        this.LargeImageList.ResetEvent.Set();
+        //this.LargeImageList.ResetEvent.Set();
         this.IsCancelRequested = false;
         Shell32.SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
-        GC.WaitForFullGCComplete(1000);
+        GC.WaitForFullGCComplete(500);
         GC.Collect();
       }));
 
@@ -1268,6 +1311,8 @@ namespace ShellControls.ShellListView {
 
     #region Overrides
 
+    private Int32 _HotItemIndex { get; set; } = -1;
+    private List<Int32> _PrevHotItemIndex { get; set; } = new List<Int32>();
     /// <inheritdoc/>
     protected override void OnDragDrop(F.DragEventArgs e) {
       var row = -1;
@@ -1472,6 +1517,7 @@ namespace ShellControls.ShellListView {
     private System.Windows.Controls.Primitives.ScrollBar _VScroll;
     [DllImport("user32.dll")]
     static extern int SetScrollInfo(IntPtr hwnd, int fnBar, [In] ref SCROLLINFO lpsi, bool fRedraw);
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public System.Windows.Controls.Primitives.ScrollBar VScroll {
       get => this._VScroll;
       set {
@@ -1482,17 +1528,6 @@ namespace ShellControls.ShellListView {
           this._PreventScrollEvent = true;
           if (!this._PreventScrollValueEvent) {
             var dy = (Int32)Math.Round((args.NewValue - args.OldValue), 0);
-            var shouldChange = Math.Abs(dy) >= Math.Round(this.VScroll.SmallChange, 0);
-            if (!shouldChange) {
-              this._PreventScrollEvent = true;
-              this._PreventScrollValueEvent = true;
-              this.VScroll.Value = args.OldValue;
-              this._PreventScrollValueEvent = false;
-              this._PreventScrollEvent = false;
-              return;
-            } else {
-              this._OldValue = args.OldValue;
-            }
             var curScroll = this.GetScrollPosition();
             if (args.NewValue == 0D) {
               dy = -curScroll.nPos;
@@ -1511,9 +1546,20 @@ namespace ShellControls.ShellListView {
               this._IIListView.GetItemPosition(lviFrom, out var ptFrom);
               dy = ptTo.y - ptFrom.y;
             }
-            var t = new Thread((() => { User32.SendMessage(this.LVHandle, MSG.LVM_SCROLL, 0, dy); }));
-            t.Priority = ThreadPriority.Lowest;
-            t.Start();
+
+            this.VScroll.Dispatcher.BeginInvoke(DispatcherPriority.Render, (Action)(
+              () => {
+                User32.SendMessage(this.LVHandle, MSG.LVM_SCROLL, 0, dy);
+                curScroll = this.GetScrollPosition();
+                var shouldChange = Math.Abs(args.NewValue - curScroll.nPos) > 0.9;
+                if (shouldChange) {
+                  this._PreventScrollEvent = true;
+                  this._PreventScrollValueEvent = true;
+                  this.VScroll.Value = curScroll.nPos;
+                  this._PreventScrollValueEvent = false;
+                  this._PreventScrollEvent = false;
+                }
+              }));
           } else {
             this._PreventScrollValueEvent = false;
           }
@@ -1677,6 +1723,9 @@ namespace ShellControls.ShellListView {
 
 
               ToolTip.HideTooltip();
+              if (this._IsInScrooll) {
+                break;
+              }
               ToolTip.ShowTooltip(this, itemInfotip, nmGetInfoTip.iItem, nmGetInfoTip.dwFlags);
 
               break;
@@ -1781,11 +1830,12 @@ namespace ShellControls.ShellListView {
               break;
 
             case WNM.LVN_BEGINSCROLL:
+              this._IsInScrooll = true;
+              ToolTip.HideTooltip();
               this.EndLabelEdit();
               this.LargeImageList.ResetEvent.Reset();
               this._ResetEvent.Reset();
               this._ResetTimer.Stop();
-              ToolTip.HideTooltip();
               this.ScrollSyncEvent.Reset();
               if (!this._PreventScrollEvent) {
                 //var scrollInfo = this.GetScrollPosition();
@@ -1793,9 +1843,9 @@ namespace ShellControls.ShellListView {
                 //this.Vscroll2.Refresh();
                 //this._PreventScrollValueEvent = true;
                 //Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Render, (Action)(() => {
-                var scrollInfo = this.GetScrollPosition();
-                this._PreventScrollValueEvent = true;
-                this.VScroll.Value = scrollInfo.nPos;
+                //var scrollInfo = this.GetScrollPosition();
+                //this._PreventScrollValueEvent = true;
+                //this.VScroll.Value = scrollInfo.nPos;
                 //}));
 
               }
@@ -1803,6 +1853,11 @@ namespace ShellControls.ShellListView {
               break;
 
             case WNM.LVN_ENDSCROLL:
+              //this.LargeImageList.ResetEvent.Set();
+              this._ResetEvent.Set();
+              this._ResetTimer.Stop();
+              //this._ResetTimer.Start();
+
               this._PreventScrollValueEvent = false;
               this._PreventScrollEvent = false;
               this.ScrollUpdateThreadRun(true);
@@ -1812,9 +1867,6 @@ namespace ShellControls.ShellListView {
               //  this.VScroll.Value = scrollInfo.nPos;
               //  this._PreventScrollEvent = false;
               //}));
-
-
-              this._ResetTimer.Start();
               break;
 
             case WNM.LVN_ITEMCHANGED:
@@ -1941,6 +1993,8 @@ namespace ShellControls.ShellListView {
             case WNM.LVN_HOTTRACK:
               var nlvHotTrack = m.GetLParam<NMLISTVIEW>();
               var lvitemindex = new LVITEMINDEX();
+              
+              this._HotItemIndex = nlvHotTrack.iItem;
               if (nlvHotTrack.iItem > -1) {
                 lvitemindex.iGroup = this.GetGroupIndex(nlvHotTrack.iItem);
                 lvitemindex.iItem = nlvHotTrack.iItem;
@@ -1948,6 +2002,7 @@ namespace ShellControls.ShellListView {
                 if (!itemRect.ToRectangle(2).Contains(nlvHotTrack.ptAction.ToPoint())) {
                   if (true) {
                     nlvHotTrack.iItem = -1;
+                    //this._HotItemIndex = -1;
                     Marshal.StructureToPtr(nlvHotTrack, m.LParam, false);
                     this._SkipSelection = true;
                     ToolTip.HideTooltip();
@@ -2025,6 +2080,7 @@ namespace ShellControls.ShellListView {
               break;
 
             case WNM.NM_SETFOCUS:
+              this._PrevHotItemIndex.Clear();
               if (this.IsGroupsEnabled) {
                 this.RedrawWindow();
               }
@@ -2306,8 +2362,16 @@ namespace ShellControls.ShellListView {
 
       }
 
+      if (uMsg == 0x0201 || uMsg == 0x0203 || uMsg == 0x0204 || uMsg == 0x0206 || uMsg == 0x0207 || uMsg == 0x0209) {
+        MouseButtonEventArgs args = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) {
+          RoutedEvent = UIElement.PreviewMouseDownEvent
+        };
+        Application.Current.MainWindow.RaiseEvent(args);
+      }
+
       if (uMsg == 0x0201) {
         this._IsMouseButtonDown = true;
+       
       }
 
       if (uMsg == 0x0202) {
@@ -2418,7 +2482,7 @@ namespace ShellControls.ShellListView {
               this.VScroll.Minimum = scrollInfo.nMin;
               this.VScroll.Maximum = scrollInfo.nMax - scrollInfo.nPage;
               if (this.View == ShellViewStyle.Details && !this.IsGroupsEnabled) {
-                this.VScroll.SmallChange = 1;
+                this.VScroll.SmallChange = Math.Max((scrollInfo.nMax * 1D / scrollInfo.nPage) / 60, 3);
                 this.VScroll.Maximum += 1;
               } else {
                 this.VScroll.SmallChange = scrollInfo.nPage / 10D;
@@ -2434,7 +2498,11 @@ namespace ShellControls.ShellListView {
                 var vp = (this.VScroll.Maximum * 50) / (this.ClientRectangle.Height - 50);
                 this.VScroll.ViewportSize = vp;
               } else {
-                this.VScroll.ViewportSize = this.ClientRectangle.Height / 20;
+                if (this.View == ShellViewStyle.Details && !this.IsGroupsEnabled) {
+                  this.VScroll.ViewportSize = this.ClientRectangle.Height / 12;
+                } else {
+                  this.VScroll.ViewportSize = this.ClientRectangle.Height - 20;
+                }
               }
               this._VScrollWidth = 18;
               this.VScroll.Visibility = Visibility.Visible;
@@ -2459,17 +2527,23 @@ namespace ShellControls.ShellListView {
         //  //  this.ClientRectangle.Height, false);
         //  this.Focus(false, true);
         //}
-      }
-
+      } 
+      
       return User32.CallWindowProc(this._OldWndProc, hWnd, uMsg, wParam, lParam);
+      
     }
     private IntPtr _OriginalFont { get; set; }
+    private Windows.UI.Color AccentColor { get; set; }
     /// <inheritdoc/>
     protected override void OnHandleCreated(EventArgs e) {
+      var uiSettings = new UISettings();
+      this.AccentColor = uiSettings.GetColorValue(UIColorType.AccentLight2);
       this._NewWndProc = this.LVWndProc;
       this._NewHeaderWndProc = this.LVHeaderWndProc;
       base.OnHandleCreated(e);
 
+      this.m_dbConnection = new System.Data.SQLite.SQLiteConnection($"Data Source={this._DBPath};Version=3;Pooling=True;Max Pool Size=100;");
+      this.m_dbConnection.OpenAsync();
       this.Theme = new LVTheme(Settings.BESettings.CurrentTheme == "Dark" ? ThemeColors.Dark : ThemeColors.Light);
       this.BackColor = Color.Black;
 
@@ -2774,9 +2848,9 @@ namespace ShellControls.ShellListView {
     /// <param name="obj">The item you want to insert</param>
     /// <returns>If item is new Then returns <see cref="IListItemEx.ItemIndex">obj.ItemIndex</see> Else returns -1</returns>
     public Int32 InsertNewItem(IListItemEx obj) {
-      if (!this._AddedItems.Contains(obj.PIDL) && !String.IsNullOrEmpty(obj.ParsingName) && obj.IsInCurrentFolder(this.CurrentFolder)) {
+      if (this.Items.All(a => a.ParsingName != obj.ParsingName) && !String.IsNullOrEmpty(obj.ParsingName) && obj.IsInCurrentFolder(this.CurrentFolder)) {
         this.Items.Add(obj);
-        this._AddedItems.Add(obj.PIDL);
+        this._AddedItems.Add(obj.ParsingName.GetHashCode());
         var col = this.AllAvailableColumns.FirstOrDefault(w => w.Value.ID == this.LastSortedColumnId).Value;
         this.SetSortCollumn(true, col, this.LastSortOrder, false);
         //this.SetSortCollumn(true, col, SortOrder.Ascending, false);
@@ -2806,8 +2880,12 @@ namespace ShellControls.ShellListView {
 
       if (theItem == null) {
         if (oldItem != null) {
-          this._AddedItems.Remove(oldItem.PIDL);
-          this.Items[oldItem.ItemIndex] = obj2.Extension.Equals(".library-ms") ? FileSystemListItem.InitializeWithIShellItem(this.LVHandle, BExplorer.Shell.ShellLibrary.Load(obj2.DisplayName, true).ComInterface) : FileSystemListItem.ToFileSystemItem(this.LVHandle, obj2.PIDL);
+          this._AddedItems.Remove(oldItem.ParsingName.GetHashCode());
+          this.Items.RemoveAt(oldItem.ItemIndex);
+          var newObj = obj2.Extension.Equals(".library-ms") ? FileSystemListItem.InitializeWithIShellItem(this.LVHandle, BExplorer.Shell.ShellLibrary.Load(obj2.DisplayName, true).ComInterface) : FileSystemListItem.ToFileSystemItem(this.LVHandle, obj2.PIDL);
+          if (this.Items.All(a => a.ParsingName != newObj.ParsingName)) {
+            this.Items.Add(newObj);
+          }
 
         }
 
@@ -2843,7 +2921,8 @@ namespace ShellControls.ShellListView {
     }
 
     public static Boolean IsShowingLayered(F.DataObject dataObject) {
-      if (!dataObject.GetDataPresent("IsShowingLayered")) return false;
+      if (!dataObject.GetDataPresent("IsShowingLayered"))
+        return false;
       var data = dataObject.GetData("IsShowingLayered");
       if (data != null) {
         return data is Stream stream && new BinaryReader(stream).ReadBoolean();
@@ -3038,6 +3117,55 @@ namespace ShellControls.ShellListView {
     }
 
     public void PasteAvailableFiles() {
+      if (true) {
+        var teracopyFilepath = @"C:\Program Files\TeraCopy\TeraCopy.exe";
+        var dataObject = F.Clipboard.GetDataObject();
+        var dropEffect = dataObject.GetDropEffect();
+        var operation = String.Empty;
+        if (dropEffect == System.Windows.DragDropEffects.Copy) {
+          operation = "Copy";
+        } else {
+          operation = "Move";
+        }
+        if (dataObject != null && dataObject.GetDataPresent("Shell IDList Array")) {
+          var shellItemArray = dataObject.ToShellItemArray();
+          var items = shellItemArray.ToArray();
+
+          if (items.Length == 1) {
+            var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} \"{items.Select(s => FileSystemListItem.InitializeWithIShellItem(this.LVHandle, s).ParsingName).Single()}\" \"{this.CurrentFolder.ParsingName}\"");
+            Process.Start(startInfo);
+          } else if (items.Length > 1) {
+            var itemList = items.Select(s => FileSystemListItem.InitializeWithIShellItem(this.LVHandle, s).ParsingName).ToArray();
+            var tempFile = Path.GetTempFileName();
+            File.WriteAllLines(tempFile, itemList);
+            var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} *{tempFile} \"{this.CurrentFolder.ParsingName}\"");
+            var process = Process.Start(startInfo);
+            process.Exited += (sender, args) => {
+              if (File.Exists(tempFile)) {
+                File.Delete(tempFile);
+              }
+            };
+          }
+        } else if (dataObject != null && dataObject.GetDataPresent("FileDrop")) {
+          var items = (String[])dataObject.GetData("FileDrop");
+          if (items.Length == 1) {
+            var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} \"{items.First()}\" \"{this.CurrentFolder.ParsingName}\"");
+            Process.Start(startInfo);
+          } else if (items.Length > 1) {
+            var tempFile = Path.GetTempFileName();
+            File.WriteAllLines(tempFile, items);
+            var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} *{tempFile} \"{this.CurrentFolder.ParsingName}\"");
+            var process = Process.Start(startInfo);
+            process.Exited += (sender, args) => {
+              if (File.Exists(tempFile)) {
+                File.Delete(tempFile);
+              }
+            };
+          }
+        }
+
+        return;
+      }
       var handle = this.Handle;
       var view = this;
       var dlg = new FileOperation(this);
@@ -3160,7 +3288,7 @@ namespace ShellControls.ShellListView {
         this.LargeImageList.ResizeImages(value);
         this.LargeImageList.AttachToListView(this, 0);
         this.SmallImageList.AttachToListView(this, 1);
-        User32.SendMessage(this.LVHandle, MSG.LVM_SETICONSPACING, 0, new IntPtr(((value + 16 + 42) << 16) | ((value + 0 + 30) & 0xFFFF)));
+        User32.SendMessage(this.LVHandle, MSG.LVM_SETICONSPACING, 0, new IntPtr(((value + 16 + 60) << 16) | ((value + 0 + 30) & 0xFFFF)));
       } catch (Exception) { }
     }
 
@@ -3527,7 +3655,7 @@ namespace ShellControls.ShellListView {
     private Boolean _IsScrollUpdateInProgress = false;
     private void ScrollUpdateThreadRun(Boolean onlyValue = false, Boolean withThread = true) {
       void ProcessScroolUpdate() {
-        Application.Current.Dispatcher.Invoke(DispatcherPriority.Send, (Action)(() => {
+        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Input, (Action)(() => {
           var scrollInfo = this.GetScrollPosition();
           //this._PreventScrollValueEvent = true;
           if (scrollInfo.nMax == 0) {
@@ -3537,7 +3665,7 @@ namespace ShellControls.ShellListView {
             this.VScroll.Minimum = scrollInfo.nMin;
             this.VScroll.Maximum = scrollInfo.nMax - scrollInfo.nPage;
             if (this.View == ShellViewStyle.Details && !this.IsGroupsEnabled) {
-              this.VScroll.SmallChange = 1;
+              this.VScroll.SmallChange = Math.Max((scrollInfo.nMax * 1D / scrollInfo.nPage) / 60, 3);
               this.VScroll.Maximum += 1;
             } else {
               this.VScroll.SmallChange = scrollInfo.nPage / 10D;
@@ -3553,7 +3681,11 @@ namespace ShellControls.ShellListView {
               var vp = (this.VScroll.Maximum * 50) / (this.ClientRectangle.Height - 50);
               this.VScroll.ViewportSize = vp;
             } else {
-              this.VScroll.ViewportSize = this.ClientRectangle.Height / 20;
+              if (this.View == ShellViewStyle.Details && !this.IsGroupsEnabled) {
+                this.VScroll.ViewportSize = this.ClientRectangle.Height / 10D;
+              } else {
+                this.VScroll.ViewportSize = this.ClientRectangle.Height - 20;
+              }
             }
 
             if (scrollInfo.nMax > 0) {
@@ -3567,6 +3699,8 @@ namespace ShellControls.ShellListView {
 
           this._PreventScrollValueEvent = true;
           this.VScroll.Value = scrollInfo.nPos;
+          this.VScroll.UpdateLayout();
+          this.VScroll.InvalidateVisual();
           this._PreventScrollValueEvent = false;
         }));
 
@@ -3832,7 +3966,7 @@ namespace ShellControls.ShellListView {
       // Set the folder icon
       var hr = Shell32.SHGetSetFolderCustomSettings(ref fcs, wszPath.Replace(@"\\", @"\"), Shell32.FCS_FORCEWRITE);
       if (hr == HResult.S_OK) {
-        this.UpdateIconCacheForFolder(wszPath); // Update the icon cache
+        this.UpdateIconCacheForFolder(wszPath.Replace(@"\\", @"\")); // Update the icon cache
       }
 
       this.RefreshItem(this._SelectedIndexes[0]);
@@ -3843,7 +3977,9 @@ namespace ShellControls.ShellListView {
       var res = Shell32.SHGetFileInfo(Marshal.StringToHGlobalAuto(wszPath), 0, out sfi, (Int32)Marshal.SizeOf(sfi), SHGFI.IconLocation);
       var iIconIndex = Shell32.Shell_GetCachedImageIndex(sfi.szDisplayName.Replace(@"\\", @"\"), sfi.iIcon, 0);
       Shell32.SHUpdateImage(sfi.szDisplayName.Replace(@"\\", @"\"), sfi.iIcon, 0x0002, iIconIndex);
+      //Shell32.SHChangeNotify(Shell32.HChangeNotifyEventID.SHCNE_UPDATEITEM, Shell32.HChangeNotifyFlags.SHCNF_PATHW, Marshal.StringToHGlobalAuto(wszPath), IntPtr.Zero);
       Shell32.SHChangeNotify(Shell32.HChangeNotifyEventID.SHCNE_UPDATEIMAGE, Shell32.HChangeNotifyFlags.SHCNF_DWORD | Shell32.HChangeNotifyFlags.SHCNF_FLUSHNOWAIT, IntPtr.Zero, (IntPtr)sfi.iIcon);
+      Shell32.SHChangeNotify(Shell32.HChangeNotifyEventID.SHCNE_UPDATEITEM, Shell32.HChangeNotifyFlags.SHCNF_PATHA, Marshal.StringToHGlobalAuto(wszPath), IntPtr.Zero);
     }
 
     private Boolean _IsUpdateNotificationAllowed { get; set; } = true;
@@ -3854,8 +3990,9 @@ namespace ShellControls.ShellListView {
     /// <returns></returns>
     public HResult ClearFolderIcon(String wszPath) {
       this._IsUpdateNotificationAllowed = false;
-      var fcs = new Shell32.LPSHFOLDERCUSTOMSETTINGS() { dwMask = Shell32.FCSM_ICONFILE };
+      var fcs = new Shell32.LPSHFOLDERCUSTOMSETTINGS() { iIconIndex = 0, dwMask = Shell32.FCSM_ICONFILE };
       fcs.dwSize = (UInt32)Marshal.SizeOf(fcs);
+      fcs.pszIconFile = null;
 
       var hr = Shell32.SHGetSetFolderCustomSettings(ref fcs, wszPath, Shell32.FCS_FORCEWRITE);
       if (hr == HResult.S_OK) {
@@ -3961,8 +4098,6 @@ namespace ShellControls.ShellListView {
 
       if (this._ItemForRename > -1) {
 
-
-
       }
 
       this._ItemForRename = -1;
@@ -4016,7 +4151,7 @@ namespace ShellControls.ShellListView {
 
       if (r.IntersectsWith(this.ClientRectangle)) {
         var sho = this.Items[index];
-        var icon = sho.GetHBitmap(this.IconSize, true, true);
+        var icon = sho.GetHBitmap(this.IconSize, true, out var hr, true);
         sho.IsThumbnailLoaded = true;
         sho.IsNeedRefreshing = false;
         if (icon != IntPtr.Zero) {
@@ -4074,22 +4209,23 @@ namespace ShellControls.ShellListView {
       // if (this.RequestedCurrentLocation != destination) {
       //  this.IsCancelRequested = true;
       // }
+      this._UnvalidateTimer.Stop();
       this.LargeImageList.ResetEvent.Set();
       this.SmallImageList.ResetEvent.Set();
       this._ResetEvent.Set();
 
       if (this._Threads.Count > 0) {
         this._Mre.Set();
-        this._ResetEvent.Set();
-        this.LargeImageList.ResetEvent.Set();
-        this.SmallImageList.ResetEvent.Set();
+        //this._ResetEvent.Set();
+        //this.LargeImageList.ResetEvent.Set();
+        //this.SmallImageList.ResetEvent.Set();
         foreach (var thread in this._Threads.ToArray()) {
           thread.Interrupt();
           this._Threads.Remove(thread);
         }
       }
 
-      this._UnvalidateTimer.Stop();
+
       this._IsDisplayEmptyText = false;
       var itemsForSel = new List<IListItemEx>();
       this.BeginInvoke((Action)(() => { itemsForSel.AddRange(this.SelectedItems); }));
@@ -4106,6 +4242,7 @@ namespace ShellControls.ShellListView {
       this._ItemForRename = -1;
       this._LastItemForRename = -1;
       this.Items.Clear();
+      this._PrevHotItemIndex.Clear();
       this._AddedItems.Clear();
       this.LargeImageList.ReInitQueues();
       this.SmallImageList.ReInitQueues();
@@ -4347,8 +4484,9 @@ namespace ShellControls.ShellListView {
         }
       }
       var navigationThread = new Thread(() => {
+        //this.BeginInvoke((Action)(() => {
         try {
-          this._ResetScrollEvent.Reset();
+          this._ResetScrollEvent.Set();
           this.IsCancelRequested = false;
 
 
@@ -4359,18 +4497,23 @@ namespace ShellControls.ShellListView {
             if (currentI == 0) {
               //this.Navigating?.Invoke(this, new NavigatingEventArgs(destination, isInSameTab) { IsFirstItemAvailable = true });
             }
+
             currentI++;
             if (shellItem == null) {
               continue;
             }
+
             if (!this.RequestedCurrentLocation.Equals(shellItem?.Parent) && this.IsNavigationCancelRequested) {
               this.IsNavigationCancelRequested = false;
               return;
             }
 
             shellItem!.ItemIndex = k++;
+            shellItem.m_dbConnection = this.m_dbConnection;
+
 
             this.Items.Add(shellItem);
+
             var delta = currentI - lastI;
             if (delta >= 20) {
               lastI = currentI;
@@ -4388,7 +4531,7 @@ namespace ShellControls.ShellListView {
               //  //  //  this.GenerateGroupsFromColumn(colData, folderSettings.GroupOrder == SortOrder.Descending);
               //  //  //} else {
               //  //this.SetSortCollumn(true, columns, isThereSettings ? folderSettings.SortOrder : SortOrder.Ascending, false);
-              User32.SendMessage(this.LVHandle, MSG.LVM_SETITEMCOUNT, this.Items.Count, 0x2);
+              this.BeginInvoke((Action)(() => { User32.SendMessage(this.LVHandle, MSG.LVM_SETITEMCOUNT, this.Items.Count, 0x2); }));
 
               //  Thread.Sleep(2);
               //F.Application.DoEvents();
@@ -4417,9 +4560,10 @@ namespace ShellControls.ShellListView {
               this._IsDisplayEmptyText = false;
               this._IIListView.ResetEmptyText();
               this.Navigate(this.CurrentFolder, true);
+              GC.Collect();
+              Shell32.SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
             }));
-            GC.Collect();
-            Shell32.SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
+
             if (this._Threads.Count <= 1) {
               return;
             }
@@ -4438,24 +4582,21 @@ namespace ShellControls.ShellListView {
             User32.SendMessage(this.LVHandle, MSG.LVM_SETITEMCOUNT, this.Items.Count, 0x2);
             //this.ScrollUpdateThreadRun();
           }
+
           //this.Invoke((Action)(() => {
           //  User32.LockWindowUpdate(IntPtr.Zero);
           //}));
           itemsForSel.Add(this.CurrentFolder);
           this.SelectItems(itemsForSel.ToArray(), true);
           this.ScrollUpdateThreadRun(true);
-          this.Header.Columns.OfType<ListViewColumnHeader>().ToList().ForEach(e => {
-            e.SetResizableState(this.View == ShellViewStyle.Details);
-          });
+          this.Header.Columns.OfType<ListViewColumnHeader>().ToList().ForEach(e => { e.SetResizableState(this.View == ShellViewStyle.Details); });
 
           if (!isThereSettings) {
             this.LastSortedColumnId = "A0";
             this.LastSortOrder = SortOrder.Ascending;
             //this.SetSortIcon(0, SortOrder.Ascending);
             User32.SendMessage(this.LVHandle, MSG.LVM_SETSELECTEDCOLUMN, 0, 0);
-            this.Header.Columns.OfType<ListViewColumnHeader>().ToList().ForEach(fe => {
-              fe.UpdateIsSelected();
-            });
+            this.Header.Columns.OfType<ListViewColumnHeader>().ToList().ForEach(fe => { fe.UpdateIsSelected(); });
           }
 
           this._IsDisplayEmptyText = false;
@@ -4468,15 +4609,17 @@ namespace ShellControls.ShellListView {
           }));
 
           this.Focus();
+          //this._ResetTimer.Start();
           this.BeginInvoke((Action)(() => {
             this._NavWaitTimer.Stop();
             this._IsDisplayEmptyText = false;
             this._IIListView.ResetEmptyText();
+            GC.Collect();
+
+            Shell32.SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
           }));
           //GC.WaitForFullGCComplete();
-          GC.Collect();
 
-          Shell32.SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
           this.BeginInvoke((Action)(() => {
             if (this._SearchTimer.Enabled) {
               this._SearchTimer.Stop();
@@ -4485,15 +4628,16 @@ namespace ShellControls.ShellListView {
 
 
           this._ResetScrollEvent.Set();
+          this.LargeImageList.ResetEvent.Reset();
           this._Mre.Reset();
           this._Mre.WaitOne();
-        } catch (ThreadInterruptedException ex) {
+        } catch (ThreadInterruptedException ex) { }
 
-        }
 
+        //}));
       });
-
       navigationThread.SetApartmentState(ApartmentState.STA);
+      //navigationThread.IsBackground = true;
       this._Threads.Add(navigationThread);
       navigationThread.Start();
     }
@@ -4735,12 +4879,40 @@ namespace ShellControls.ShellListView {
       this.IsFocusAllowed = false;
       this._IsCanceledOperation = false;
       this._ItemForRename = index;
+      this.IsRenameNeeded = false;
       //this.IsRenameInProgress = true;
       var ptr = IntPtr.Zero;
       this.BeginInvoke(new MethodInvoker(() => this._IIListView.EditLabel(this.ToLvItemIndex(index), IntPtr.Zero, out ptr)));
     }
 
     private void Do_Copy_OR_Move_Helper(Boolean copy, IListItemEx destination, IShellItem[] items) {
+      if (true) {
+        var teracopyFilepath = @"C:\Program Files\TeraCopy\TeraCopy.exe";
+        var operation = String.Empty;
+        if (copy) {
+          operation = "Copy";
+        } else {
+          operation = "Move";
+        }
+        if (items.Length == 1) {
+          var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} \" {items.Select(s => FileSystemListItem.InitializeWithIShellItem(this.LVHandle, s).ParsingName).Single()} \" \"{this.CurrentFolder.ParsingName}\"");
+          Process.Start(startInfo);
+        } else if (items.Length > 1) {
+          var itemList = items.Select(s => FileSystemListItem.InitializeWithIShellItem(this.LVHandle, s).ParsingName).ToArray();
+          var tempFile = Path.GetTempFileName();
+          File.WriteAllLines(tempFile, itemList);
+          var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} *{tempFile} \" {this.CurrentFolder.ParsingName} \"");
+          var process = Process.Start(startInfo);
+          process.Exited += (sender, args) => {
+            if (File.Exists(tempFile)) {
+              File.Delete(tempFile);
+            }
+          };
+        }
+
+
+        return;
+      }
       var handle = this.Handle;
       var dlg = new FileOperation(this);
       var thread = new Thread(() => {
@@ -4764,6 +4936,37 @@ namespace ShellControls.ShellListView {
       var handle = this.Handle;
       IShellItemArray? shellItemArray = null;
       IShellItem[]? items = null;
+      if (true) {
+        var dropEffect = copy ? DragDropEffects.Copy : DragDropEffects.Move;
+        var operation = dropEffect == System.Windows.DragDropEffects.Copy ? "Copy" : "Move";
+        var teracopyFilepath = @"C:\Program Files\TeraCopy\TeraCopy.exe";
+        
+        if (dataObject != null && dataObject.GetDataPresent("Shell IDList Array")) {
+          var shellItemsArray = dataObject.ToShellItemArray();
+          items = shellItemsArray.ToArray();
+        } else if (((F.DataObject)dataObject).ContainsFileDropList()) {
+          items = ((F.DataObject)dataObject).GetFileDropList().OfType<String>().Select(s => ShellItem.ToShellParsingName(s).ComInterface).ToArray();
+        }
+
+        if (items.Length == 1) {
+          var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} \"{items.Select(s => FileSystemListItem.InitializeWithIShellItem(this.LVHandle, s).ParsingName).Single()}\" \"{destination.ParsingName}\"");
+          Process.Start(startInfo);
+        } else if (items.Length > 1) {
+          var itemList = items.Select(s => FileSystemListItem.InitializeWithIShellItem(this.LVHandle, s).ParsingName).ToArray();
+          var tempFile = Path.GetTempFileName();
+          File.WriteAllLines(tempFile, itemList);
+          var startInfo = new ProcessStartInfo(teracopyFilepath, $"{operation} *{tempFile} \"{destination.ParsingName}\"");
+          var process = Process.Start(startInfo);
+          process.Exited += (sender, args) => {
+            if (File.Exists(tempFile)) {
+              File.Delete(tempFile);
+            }
+          };
+        }
+
+        return;
+      }
+      
 
       if (((F.DataObject)dataObject).ContainsFileDropList()) {
         items = ((F.DataObject)dataObject).GetFileDropList().OfType<String>().Select(s => ShellItem.ToShellParsingName(s).ComInterface).ToArray();
@@ -4825,14 +5028,16 @@ namespace ShellControls.ShellListView {
       }
 
       //Thread.Sleep(8);
-      var itemBounds = new User32.RECT() { Left = 1 };
-      var lvi = new LVITEMINDEX() { iItem = index, iGroup = this.GetGroupIndex(index) };
-      User32.SendMessage(this.LVHandle, MSG.LVM_GETITEMINDEXRECT, ref lvi, ref itemBounds);
-      itemBounds.Left -= 2;
-      itemBounds.Top -= 2;
-      itemBounds.Bottom += 2;
-      itemBounds.Right += 2;
-      this.Invoke(new MethodInvoker(() => this._IIListView.RedrawItems(index, index)));
+      this.Invoke(new MethodInvoker(() => {
+        var itemBounds = new User32.RECT() { Left = 1 };
+        var lvi = new LVITEMINDEX() { iItem = index, iGroup = this.GetGroupIndex(index) };
+        User32.SendMessage(this.LVHandle, MSG.LVM_GETITEMINDEXRECT, ref lvi, ref itemBounds);
+        itemBounds.Left -= 2;
+        itemBounds.Top -= 2;
+        itemBounds.Bottom += 2;
+        itemBounds.Right += 2;
+        this._IIListView.RedrawItems(index, index);
+      }));
 
       // TODO: Find out why we have this loop
       //for (Int32 i = 0; i < 1; i++) {
@@ -4842,6 +5047,8 @@ namespace ShellControls.ShellListView {
       //}
     }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Boolean PreventOtherFocus { get; set; }
     private void ProcessShellNotifications(IntPtr wParam, IntPtr lParam) {
       if (this._Notifications.NotificationReceipt(wParam, lParam)) {
         foreach (var info in this._Notifications.NotificationsReceived.OfType<NotifyInfos>().ToArray()) {
@@ -4855,6 +5062,7 @@ namespace ShellControls.ShellListView {
                   if (obj.IsInCurrentFolder(this.CurrentFolder)) {
                     obj = FileSystemListItem.ToFileSystemItem(this.LVHandle, obj.PIDL);
                     if (this.IsRenameNeeded) {
+                      this.PreventOtherFocus = true;
                       var existingItem = this.Items.FirstOrDefault(s => s.Equals(obj));
                       if (existingItem == null) {
                         var itemIndex = this.InsertNewItem(obj);
@@ -4866,6 +5074,7 @@ namespace ShellControls.ShellListView {
                     } else if (this._ItemsQueue.Enqueue(new Tuple<ItemUpdateType, IListItemEx>(ItemUpdateType.Created, obj))) {
                       this.UnvalidateDirectory();
                     }
+                    this.RaiseItemUpdated(ItemUpdateType.Created, obj, null, -1);
                   }
                   obj.Dispose();
                 } catch (FileNotFoundException) { }
@@ -4903,23 +5112,42 @@ namespace ShellControls.ShellListView {
               case ShellNotifications.SHCNE.SHCNE_UPDATEITEM:
                 var objUpdateItem = FileSystemListItem.ToFileSystemItem(this.LVHandle, info.Item1);
                 if (objUpdateItem.IsInCurrentFolder(this.CurrentFolder)) {
-                  objUpdateItem = FileSystemListItem.ToFileSystemItem(this.LVHandle, objUpdateItem.PIDL);
-                  var exisitingUItem = this.Items.ToArray().FirstOrDefault(w => w.Equals(objUpdateItem));
-                  if (exisitingUItem != null) {
-                    if (this.View == ShellViewStyle.Details || this.View == ShellViewStyle.Tile) {
+                  //this.Invoke(new MethodInvoker(() => {
+                  if (this.View == ShellViewStyle.Details || this.View == ShellViewStyle.Tile) {
+                    objUpdateItem = FileSystemListItem.ToFileSystemItem(this.LVHandle, objUpdateItem.PIDL);
+                    var exisitingUItem = this.Items.ToArray().FirstOrDefault(w => w.Equals(objUpdateItem));
+                    if (exisitingUItem != null) {
+
                       foreach (var collumn in this.Collumns) {
                         if ((collumn.Index > 0 && this.IconSize == 16) || (collumn.Index > 0 && this.View == ShellViewStyle.Tile)) {
                           this.SmallImageList.EnqueueSubitemsGet(new Tuple<Int32, Int32, PROPERTYKEY>(exisitingUItem.ItemIndex, collumn.Index, collumn.pkey));
                         }
                       }
+
+                      //else {
+                      if (this._ItemsQueue.Enqueue(new Tuple<ItemUpdateType, IListItemEx>(ItemUpdateType.Updated, exisitingUItem))) {
+                        //this.UnvalidateDirectory(false);
+                      }
+                      //}
                     }
-                    //else {
-                    if (this._ItemsQueue.Enqueue(new Tuple<ItemUpdateType, IListItemEx>(ItemUpdateType.Updated, exisitingUItem))) {
-                      this.UnvalidateDirectory(false);
+
+                    objUpdateItem.Dispose();
+                  } else {
+                    //this.Invoke(new MethodInvoker(() => {
+                    var exisitingUItem = this.Items.ToArray().FirstOrDefault(w => w.CompareID == objUpdateItem.ParsingName);
+                    if (exisitingUItem != null) {
+                      exisitingUItem.IsNeedRefreshing = true;
+                      this.Items[exisitingUItem.ItemIndex] = exisitingUItem.Clone(true);
+                      this.UpdateItem(exisitingUItem.ItemIndex);
+                      //this.RefreshItem(exisitingUItem.ItemIndex);
                     }
-                    //}
+
+                    objUpdateItem.Dispose();
+                    //}));
+
                   }
-                  objUpdateItem.Dispose();
+                  //}));
+
                 }
 
                 break;
@@ -5039,6 +5267,7 @@ namespace ShellControls.ShellListView {
 
     internal void OnSelectionChanged() {
       this.SelectionChanged?.Invoke(this, EventArgs.Empty);
+      this._PrevHotItemIndex.Clear();
       //this.ScrollUpdateThreadRun();
       Task.Run(() => {
         //GC.Collect();
@@ -5155,7 +5384,7 @@ namespace ShellControls.ShellListView {
     private Boolean _IsAutoScrool;
 
     [SecurityPermission(SecurityAction.Demand, ControlThread = true)]
-    private void ProcessCustomDrawPostPaint(ref Message m, User32.NMLVCUSTOMDRAW nmlvcd, Int32 index, IntPtr hdc, IListItemEx sho, Color? textColor, LVITEMINDEX lvi) {
+    private void ProcessCustomDrawPostPaint(ref Message m, User32.NMLVCUSTOMDRAW nmlvcd, Int32 index, IntPtr hdc, IListItemEx sho, Color? textColor, LVITEMINDEX lvi, Boolean isSelected) {
       try {
         if (nmlvcd.clrTextBk == -1 && nmlvcd.dwItemType == 0 && this._CurrentDrawIndex == -1) {
           //var hFont = this.Font.ToHfont();
@@ -5320,11 +5549,20 @@ namespace ShellControls.ShellListView {
                   labelBoundsReal.Left = labelBoundsReal.Left + 12;
                   labelBoundsReal.Right = labelBoundsReal.Right - 16;
                 }
-                labelBoundsReal.Top = labelBoundsReal.Top - 26;
-                labelBoundsReal.Bottom = labelBoundsReal.Bottom - 8;
-                labelBoundsReal.Left = labelBoundsReal.Left + 2;
-                labelBoundsReal.Right = labelBoundsReal.Right + 1;
-                labelBoundsReal.Width = labelBoundsReal.Width + 2;
+
+                if (isSelected) {
+                  labelBoundsReal.Top = labelBoundsReal.Top - 26;
+                  labelBoundsReal.Bottom = labelBoundsReal.Bottom - 8;
+                  labelBoundsReal.Left = labelBoundsReal.Left - 1;
+                  labelBoundsReal.Right = labelBoundsReal.Right + 1;
+                  labelBoundsReal.Width = labelBoundsReal.Width + 4;
+                } else {
+                  labelBoundsReal.Top = labelBoundsReal.Top - 26;
+                  labelBoundsReal.Bottom = labelBoundsReal.Bottom - 8;
+                  labelBoundsReal.Left = labelBoundsReal.Left + 1;
+                  labelBoundsReal.Right = labelBoundsReal.Right + 1;
+                  labelBoundsReal.Width = labelBoundsReal.Width + 2;
+                }
               }
               //User32.DrawText(hdc, sho.DisplayName, -1, ref labelBounds, User32.TextFormatFlags.Center | User32.TextFormatFlags.EditControl |User32.TextFormatFlags.CalcRect | User32.TextFormatFlags.WordBreak | User32.TextFormatFlags.EndEllipsis);
               if (index != this._ItemForRename && this.View != ShellViewStyle.Tile) {
@@ -5515,7 +5753,10 @@ namespace ShellControls.ShellListView {
 
 
       var sho = this.Items.Count > index ? this.Items[index] : null;
-
+      if (sho == null) {
+        m.Result = IntPtr.Zero;
+        return;
+      }
       Color? textColor = null;
 
 
@@ -5583,7 +5824,7 @@ namespace ShellControls.ShellListView {
             }
           }
           var pen = new Pen(Color.FromArgb(150, 128, 128, 128));
-          var arrowPen = new Pen(this._IsOverGroup ? Color.LightGray : this.Theme.SelectionBorderColor.ToDrawingColor(), 2);
+          var arrowPen = new Pen(this._IsOverGroup ? Color.LightGray : Color.FromArgb(this.AccentColor.A, this.AccentColor.R, this.AccentColor.G, this.AccentColor.B), 2);
           gr.DrawLine(pen, nmlvcd.rcText.X + textSize.Height + 8, nmlvcd.rcText.Y + (nmlvcd.rcText.Height / 2) + 1, nmlvcd.rcText.Right - 20, nmlvcd.rcText.Y + (nmlvcd.rcText.Height / 2) + 1);
 
           gr.DrawArrowHead(arrowPen, new PointF(nmlvcd.rcText.Right - 38 + 60 / 2f, state == 1 ? nmlvcd.rcText.Y + 8 : nmlvcd.rcText.Y + 12), 0, state == 1 ? -4 : 4, 1);
@@ -5605,6 +5846,7 @@ namespace ShellControls.ShellListView {
             Marshal.StructureToPtr(nmlvcd, m.LParam, true);
             if (nmlvcd.dwItemType == 2) { }
             if (nmlvcd.dwItemType != 1) {
+              nmlvcd.nmcd.uItemState = 0;
               m.Result = (IntPtr)(CustomDraw.CDRF_NEWFONT | CustomDraw.CDRF_NOTIFYITEMDRAW | CustomDraw.CDRF_NOTIFYPOSTPAINT | 0x40);
             } else {
               m.Result = (IntPtr)CustomDraw.CDRF_DODEFAULT;
@@ -5616,6 +5858,8 @@ namespace ShellControls.ShellListView {
             break;
 
           case CustomDraw.CDDS_ITEMPREPAINT:
+            var wasHot = this._PrevHotItemIndex.Contains(index);
+            
             if (nmlvcd.clrTextBk == -1 && nmlvcd.dwItemType == 0) {
               if (sho != null && this.LVItemsColorCodes != null && this.LVItemsColorCodes.Count > 0 && !String.IsNullOrEmpty(sho.Extension)) {
                 var extItemsAvailable = this.LVItemsColorCodes.Any(c => c.ExtensionList.ToLowerInvariant().Contains(sho.Extension.ToLowerInvariant()));
@@ -5646,7 +5890,7 @@ namespace ShellControls.ShellListView {
               }
 
               var isSelected = (User32.SendMessage(this.LVHandle, MSG.LVM_GETITEMSTATE, index, LVIS.LVIS_SELECTED) & LVIS.LVIS_SELECTED) == LVIS.LVIS_SELECTED;
-              var isFocused = (User32.SendMessage(this.LVHandle, MSG.LVM_GETITEMSTATE, index, LVIS.LVIS_FOCUSED) & LVIS.LVIS_FOCUSED) == LVIS.LVIS_FOCUSED;
+              //var isFocused = (User32.SendMessage(this.LVHandle, MSG.LVM_GETITEMSTATE, index, LVIS.LVIS_FOCUSED) & LVIS.LVIS_FOCUSED) == LVIS.LVIS_FOCUSED;
               var isHot = (nmlvcd.nmcd.uItemState & CDIS.HOT) == CDIS.HOT || (nmlvcd.nmcd.uItemState & CDIS.DROPHILITED) == CDIS.DROPHILITED;
 
               var labelBoundsReal = new User32.RECT() { Left = 2 };
@@ -5664,7 +5908,7 @@ namespace ShellControls.ShellListView {
               }
 
               var labelBottom = labelBoundsReal.Bottom;
-              labelBoundsReal.Width = itemBounds.Width - 35;
+              labelBoundsReal.Width = itemBounds.Width - 36;
 
               var height = User32.DrawText(hdc, sho.DisplayName, -1, ref labelBoundsReal, User32.TextFormatFlags.CalcRect | User32.TextFormatFlags.Center | User32.TextFormatFlags.EditControl | User32.TextFormatFlags.WordBreak | User32.TextFormatFlags.EndEllipsis | User32.TextFormatFlags.NoPrefix);
               //labelBottom = labelBoundsReal.Top + height + 2;
@@ -5689,13 +5933,14 @@ namespace ShellControls.ShellListView {
                 //}
 
                 if (this.View == ShellViewStyle.Details && isSelected) {
-                  var selectedBrush = new SolidBrush(this.Theme.SelectionBorderColor.ToDrawingColor());
+                  var selectedBrush = new SolidBrush(Color.FromArgb(this.AccentColor.A, this.AccentColor.R, this.AccentColor.G, this.AccentColor.B));
                   gr.FillRoundedRectangle(selectedBrush, new Rectangle(itemBounds.X + 1, itemBounds.Y + 8, 2, itemBounds.Height - 18), 1);
                   selectedBrush.Dispose();
                 }
 
                 if (isSelected && this.View != ShellViewStyle.Details) {
-                  var pen = new Pen(this.Theme.SelectionBorderColor.ToDrawingColor(), 2);
+                  var penColor = Color.FromArgb(this.AccentColor.A, this.AccentColor.R, this.AccentColor.G, this.AccentColor.B);
+                  var pen = new Pen(penColor, 2);
                   gr.DrawRoundedRectangle(pen, rectSel, this.View == ShellViewStyle.Tile ? 3 : 4);
                   pen.Dispose();
                 }
@@ -5711,11 +5956,15 @@ namespace ShellControls.ShellListView {
               //nmlvcd.nmcd.rc.Height += 20;
 
               //Marshal.StructureToPtr(nmlvcd, m.LParam, true);
-              this.ProcessCustomDrawPostPaint(ref m, nmlvcd, index, hdc, sho, textColor, lvi);
+              this.ProcessCustomDrawPostPaint(ref m, nmlvcd, index, hdc, sho, textColor, lvi, isSelected);
+              //if (this._PrevHotItemIndex.Contains(index)) {
+              //  this._PrevHotItemIndex.Remove(index);
+              //}
               m.Result = (IntPtr)CustomDraw.CDRF_SKIPDEFAULT;
             } else {
               m.Result = (IntPtr)CustomDraw.CDRF_DODEFAULT;
             }
+            
             break;
 
           case CustomDraw.CDDS_ITEMPREPAINT | CustomDraw.CDDS_SUBITEM:

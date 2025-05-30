@@ -2,11 +2,13 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using System.ComponentModel;
 
 namespace BEHelper {
 
 	public class TransPicBox : Control {
-		public Bitmap Image { get; set; }
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Bitmap Image { get; set; }
 
 		#region Constructors
 

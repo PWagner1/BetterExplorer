@@ -1,29 +1,41 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using BExplorer.Shell;
 using BExplorer.Shell._Plugin_Interfaces;
 using BExplorer.Shell.Interop;
 using Microsoft.Win32;
 using Settings;
+using Windows.Storage;
+using Windows.Storage.FileProperties;
+using Windows.Storage.Streams;
+using ThumbnailGenerator;
 using WPFUI.Win32;
+using static BExplorer.Shell.Interop.Gdi32;
+using Buffer = Windows.Storage.Streams.Buffer;
 using Color = System.Drawing.Color;
 using ImageList = BExplorer.Shell.ImageList;
+using KnownFolders = BExplorer.Shell.KnownFolders;
 using LinearGradientBrush = System.Drawing.Drawing2D.LinearGradientBrush;
 using MSG = BExplorer.Shell.Interop.MSG;
 using Pen = System.Drawing.Pen;
 using PixelFormat = System.Drawing.Imaging.PixelFormat;
+using SystemProperties = BExplorer.Shell.SystemProperties;
+using ThumbnailOptions = Windows.Storage.FileProperties.ThumbnailOptions;
 
 namespace ShellControls.ShellListView {
   public class ImageListEx {
@@ -66,7 +78,7 @@ namespace ShellControls.ShellListView {
       var ptr = IntPtr.Zero;
       this._CurrentSize = size;
       if (size == 16) {
-        ptr = ComCtl32.ImageList_Create(size * 3, size  + 22, 0x00000020 | 0x00010000 | 0x00020000, 0, 1);
+        ptr = ComCtl32.ImageList_Create(size * 3, size + 22, 0x00000020 | 0x00010000 | 0x00020000, 0, 1);
       } else {
         ptr = ComCtl32.ImageList_Create(size + 10, size + 36, 0x00000020 | 0x00010000 | 0x00020000, 0, 1);
       }
@@ -175,6 +187,12 @@ namespace ShellControls.ShellListView {
         this._OverlayQueue.Enqueue(index);
       }
 
+      var syncStatusVal = sho.GetPropertyValue(SystemProperties.StorageSyncStatus, typeof(StorageSyncStatus))?.Value;
+
+      if (syncStatusVal != null && !sho.IsFolder) {
+        sho.IsNeedLoadFromStorage = true;
+      }
+
       var isPerInstance = (sho.IconType & IExtractIconPWFlags.GIL_PERINSTANCE) == IExtractIconPWFlags.GIL_PERINSTANCE;
       if (this._CurrentSize != 16) {
         iconBounds.X = iconBounds.X + 1;
@@ -182,11 +200,12 @@ namespace ShellControls.ShellListView {
         Int32 height = 0;
         var addornerType = this.GetAddornerType(sho);
         IntPtr hThumbnail = IntPtr.Zero;
-        if ((!sho.IsThumbnailLoaded && sho.IsIconLoaded) || (sho.IsThumbnailLoaded && !sho.IsIconLoaded) || (sho.IsThumbnailLoaded && sho.IsIconLoaded) || (!sho.IsThumbnailLoaded && !sho.IsIconLoaded)) {
-          hThumbnail = sho.GetHBitmap(addornerType == 2 ? this._CurrentSize - 7 : this._CurrentSize, true);
+        if (((!sho.IsThumbnailLoaded && sho.IsIconLoaded) || (sho.IsThumbnailLoaded && !sho.IsIconLoaded) || (sho.IsThumbnailLoaded && sho.IsIconLoaded) || (!sho.IsThumbnailLoaded && !sho.IsIconLoaded))) {
+          hThumbnail = sho.GetHBitmap(addornerType == 2 ? this._CurrentSize - 7 : this._CurrentSize, true, out var hr);
 
           if (hThumbnail != IntPtr.Zero) {
             Gdi32.ConvertPixelByPixel(hThumbnail, out width, out height);
+            //Gdi32.RenderHBitmap(hThumbnail);
             if (addornerType > 0) {
               this.DrawWithAddorner(hdc, iconBounds, isGhosted, width, height, hThumbnail, addornerType);
             } else {
@@ -196,31 +215,49 @@ namespace ShellControls.ShellListView {
               width = width + 7;
               height = height + 7;
             }
-            sho.IsNeedRefreshing = ((width > height && width != this._CurrentSize) || (width < height && height != this._CurrentSize) || (width == height && width != this._CurrentSize)) && !sho.IsOnlyLowQuality;
+            sho.IsNeedRefreshing = ((width > height && width < this._CurrentSize) || (width < height && height < this._CurrentSize) || (width == height && width < this._CurrentSize)) && !sho.IsOnlyLowQuality;
             if (!sho.IsNeedRefreshing) {
               sho.IsThumbnailLoaded = true;
               sho.IsIconLoaded = true;
             }
           }
         }
+        //else if (this._ShellViewEx._IsInScrooll && sho.IsNeedLoadFromStorage) {
+        //  //Task.Run(() => { this._ThumbnailsForCacheLoad.Enqueue(index); });
+
+        //  hThumbnail = sho.GetHBitmap(this._CurrentSize, false);
+        //  if (hThumbnail != IntPtr.Zero) {
+        //    Gdi32.ConvertPixelByPixel(hThumbnail, out width, out height);
+        //    Gdi32.NativeDraw(hdc, hThumbnail, iconBounds.Left + (iconBounds.Right - iconBounds.Left - width) / 2, iconBounds.Top + (iconBounds.Bottom - iconBounds.Top - height) / 2, width, height, isGhosted);
+        //    sho.IsThumbnailLoaded = false;
+        //    sho.IsIconLoaded = true;
+        //    this._RedrawQueue.Enqueue(index);
+        //    //Task.Run(() => {
+        //    //  sho.IsNeedRefreshing = true;
+        //    //  this._ThumbnailsForCacheLoad.Enqueue(index);
+        //    //});
+        //  }
+        //}
 
         if (hThumbnail == IntPtr.Zero && !sho.IsThumbnailLoaded && !sho.IsIconLoaded || sho.IsNeedRefreshing) {
           Task.Run(() => { this._ThumbnailsForCacheLoad.Enqueue(index); });
+          //this._ThumbnailsForCacheLoad.Enqueue(index);
         }
 
-        if (hThumbnail == IntPtr.Zero && !sho.IsIconLoaded && isPerInstance) {
+        if (hThumbnail == IntPtr.Zero && !sho.IsIconLoaded && isPerInstance && !sho.IsFolder) {
           Task.Run(() => { this._IconsForRetreval.Enqueue(index); });
+          //this._IconsForRetreval.Enqueue(index);
           this.DrawDefaultIcons(hdc, sho, iconBounds);
         }
 
         if (hThumbnail == IntPtr.Zero && (sho.IsIconLoaded || !isPerInstance)) {
-          if (!sho.IsRCWSet && isPerInstance) {
+          if (!sho.IsRCWSet && isPerInstance && !sho.IsFolder) {
             Task.Run(() => {
               this._IconsForRetreval.Enqueue(index);
             });
             this.DrawDefaultIcons(hdc, sho, iconBounds);
           } else {
-            hThumbnail = sho.GetHBitmap(this._CurrentSize, false);
+            hThumbnail = sho.GetHBitmap(this._CurrentSize, false, out var hr);
             Gdi32.ConvertPixelByPixel(hThumbnail, out width, out height);
             Gdi32.NativeDraw(hdc, hThumbnail, iconBounds.Left + (iconBounds.Right - iconBounds.Left - width) / 2, iconBounds.Top + (iconBounds.Bottom - iconBounds.Top - height) / 2, width, height, isGhosted);
           }
@@ -255,11 +292,11 @@ namespace ShellControls.ShellListView {
         }
         if (sho.OverlayIconIndex > 0) {
           if (this._CurrentSize > 180)
-            this._Jumbo.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left, iconBounds.Bottom - (this._ShellViewEx.View == ShellViewStyle.Tile ? 5 : 0) - this._CurrentSize / 3), this._CurrentSize / 3);
+            this._Jumbo.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left, iconBounds.Bottom - (this._ShellViewEx.View == ShellViewStyle.Tile ? 5 : 0) - 4 - this._CurrentSize / 3), this._CurrentSize / 3);
           else if (this._CurrentSize > 64)
-            this._Extra.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left + 10 - (this._ShellViewEx.View == ShellViewStyle.Tile ? 5 : 0), iconBounds.Bottom - 50));
+            this._Extra.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left + 10 - (this._ShellViewEx.View == ShellViewStyle.Tile ? 5 : 0), iconBounds.Bottom - 54));
           else
-            this._Large.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left + 10 - (this._ShellViewEx.View == ShellViewStyle.Tile ? 5 : 0), iconBounds.Bottom - 32));
+            this._Large.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left + 10 - (this._ShellViewEx.View == ShellViewStyle.Tile ? 5 : 0), iconBounds.Bottom - 36));
         }
         if (sho.ShieldedIconIndex > 0) {
           if (this._CurrentSize > 180)
@@ -279,7 +316,7 @@ namespace ShellControls.ShellListView {
         }
         IListItemEx badge = this.GetBadgeForPath(sho.ParsingName);
         if (badge != null) {
-          var badgeIco = badge.GetHBitmap(this._CurrentSize, false, false, true);
+          var badgeIco = badge.GetHBitmap(this._CurrentSize, false, out var hr, false, true);
           Gdi32.ConvertPixelByPixel(badgeIco, out width, out height);
           Gdi32.NativeDraw(hdc, badgeIco, iconBounds.Left + (iconBounds.Right - iconBounds.Left - 12 - _CurrentSize) / 2, iconBounds.Top + (iconBounds.Bottom - 8 - iconBounds.Top - _CurrentSize) / 2, _CurrentSize, isGhosted);
           Gdi32.DeleteObject(badgeIco);
@@ -310,7 +347,7 @@ namespace ShellControls.ShellListView {
         sho.IsThumbnailLoaded = true;
         Int32 width = 0, height = 0;
         if ((sho.IconType & IExtractIconPWFlags.GIL_PERCLASS) == IExtractIconPWFlags.GIL_PERCLASS) {
-          var hIconExe = sho.GetHBitmap(this._CurrentSize, false);
+          var hIconExe = sho.GetHBitmap(this._CurrentSize, false, out var hr);
           if (hIconExe != IntPtr.Zero) {
             sho.IsIconLoaded = true;
             Gdi32.ConvertPixelByPixel(hIconExe, out width, out height);
@@ -338,7 +375,7 @@ namespace ShellControls.ShellListView {
             this._Small.DrawIcon(hdc, this._ExeFallBackIndex,
               new Point((iconBounds.Left + (iconBounds.Right - iconBounds.Left - this._CurrentSize) / 2) + 4, iconBounds.Top + (iconBounds.Bottom - iconBounds.Top - this._CurrentSize) / 2));
           } else {
-            var hIconExe = sho.GetHBitmap(this._CurrentSize, false);
+            var hIconExe = sho.GetHBitmap(this._CurrentSize, false, out var hr);
             if (hIconExe != IntPtr.Zero) {
               sho.IsIconLoaded = true;
               Gdi32.ConvertPixelByPixel(hIconExe, out width, out height);
@@ -349,7 +386,7 @@ namespace ShellControls.ShellListView {
           }
         }
         if (sho.OverlayIconIndex > 0) {
-          this._Small.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left, iconBounds.Bottom - 18));
+          this._Small.DrawOverlay(hdc, sho.OverlayIconIndex, new Point(iconBounds.Left + 17, iconBounds.Bottom - 27));
         }
         if (sho.ShieldedIconIndex > 0) {
           this._Small.DrawIcon(hdc, sho.ShieldedIconIndex, new Point(iconBounds.Right - 20, iconBounds.Bottom - 18), 10);
@@ -360,7 +397,7 @@ namespace ShellControls.ShellListView {
 
         IListItemEx badge = this.GetBadgeForPath(sho.ParsingName);
         if (badge != null) {
-          var badgeIco = badge.GetHBitmap(16, false, false, true);
+          var badgeIco = badge.GetHBitmap(16, false, out var hr, false, true);
           Gdi32.ConvertPixelByPixel(badgeIco, out width, out height);
           Gdi32.NativeDraw(hdc, badgeIco, iconBounds.Left, iconBounds.Top, 16, isGhosted);
           Gdi32.DeleteObject(badgeIco);
@@ -371,18 +408,19 @@ namespace ShellControls.ShellListView {
     private void DrawWithAddorner(IntPtr hdc, User32.RECT iconBounds, Boolean isGhosted, Int32 width, Int32 height, IntPtr hThumbnail, Int32 addornerType) {
       Int32 width2, height2;
       if (addornerType == 2) {
-        var addorner = new Bitmap(width + 7, height + 7, PixelFormat.Format32bppPArgb);
+        var addorner = new Bitmap(width + 9, height + 9, PixelFormat.Format32bppPArgb);
         var gb = new LinearGradientBrush(new System.Drawing.Point(0, 0), new System.Drawing.Point(0, this._CurrentSize), this._ShellViewEx.Theme.AdornerBackgroundColor.ToDrawingColor(), this._ShellViewEx.Theme.AdornerBackgroundColor.ToDrawingColor());
         var border = new Pen(this._ShellViewEx.Theme.AdornerBorderColor.ToDrawingColor());
-        addorner = Gdi32.RoundCorners(addorner, 0, gb, border);
+        addorner = Gdi32.RoundCorners(addorner, 4, Brushes.Transparent, border);
 
         var hAddorner = addorner.GetHbitmap();
 
         Gdi32.ConvertPixelByPixel(hAddorner, out width2, out height2);
-        Gdi32.NativeDraw(hdc, hAddorner, iconBounds.Left + (iconBounds.Right - iconBounds.Left - width2) / 2, iconBounds.Top - 7 + (iconBounds.Bottom - iconBounds.Top - height2 - (height2 <= width2 && height2 < this._CurrentSize ? 4 : height2 == width2 ? 4 : 1)), width2, height2, isGhosted);
+        Gdi32.NativeDraw(hdc, hThumbnail, iconBounds.Left + 1 + (iconBounds.Right - iconBounds.Left - width2) / 2 + 3, iconBounds.Top + 1 + (iconBounds.Bottom - iconBounds.Top - height2) - (height2 <= width2 && height2 < this._CurrentSize ? 1 : height2 == width2 ? 1 : (1)), width, height, isGhosted);
+        Gdi32.NativeDraw(hdc, hAddorner, iconBounds.Left + 3 + (iconBounds.Right - iconBounds.Left - width2) / 2, iconBounds.Top + 3 + (iconBounds.Bottom - iconBounds.Top - height2 - (height2 <= width2 && height2 < this._CurrentSize ? 4 : height2 == width2 ? 4 : 4)), width2, height2, isGhosted);
         Gdi32.DeleteObject(hAddorner);
         addorner.Dispose();
-        Gdi32.NativeDraw(hdc, hThumbnail, iconBounds.Left + (iconBounds.Right - iconBounds.Left - width2) / 2 + 3, iconBounds.Top - 7 + (iconBounds.Bottom - iconBounds.Top - height2) - (height2 <= width2 && height2 < this._CurrentSize ? 1 : height2 == width2 ? 1 : (-2)), width, height, isGhosted);
+        
       } else if (addornerType == 3) {
         var isWide = (height / (Double)width) < 0.6;
         var addorner = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
@@ -440,6 +478,7 @@ namespace ShellControls.ShellListView {
 
     private void _OverlaysLoadingThreadRun() {
       while (!this._IsKIllThreads) {
+        //this.ResetEvent.WaitOne();
         try {
           Int32 index = 0;
           if (!ThreadRun_Helper(this._OverlayQueue, false, ref index))
@@ -466,8 +505,9 @@ namespace ShellControls.ShellListView {
 
     private void _IconsLoadingThreadRun() {
       while (!this._IsKIllThreads) {
+        //this.ResetEvent.WaitOne();
         if (this._ShellViewEx != null && this._ShellViewEx.IsSearchNavigating) {
-          Thread.Sleep(1);
+          Thread.Sleep(10);
           Application.DoEvents();
         }
         var index = 0;
@@ -483,7 +523,7 @@ namespace ShellControls.ShellListView {
             //Thread.Sleep(1);
             //Application.DoEvents();
             //var temp = FileSystemListItem.ToFileSystemItem(sho.ParentHandle, sho.ParsingName.ToShellParsingName());
-            var icon = clonedSho.GetHBitmap(this._CurrentSize, false, true);
+            var icon = clonedSho.GetHBitmap(this._CurrentSize, false, out var hr, true);
             var shieldOverlay = 0;
 
             if (sho.ShieldedIconIndex == -1) {
@@ -512,35 +552,85 @@ namespace ShellControls.ShellListView {
     private void _IconCacheLoadingThreadRun() {
       while (!this._IsKIllThreads) {
         //if (resetEvent != null) resetEvent.WaitOne();
+        //this.ResetEvent?.WaitOne();
         var index = 0;
-        if (!ThreadRun_Helper(this._ThumbnailsForCacheLoad, true, ref index))
+        if (!ThreadRun_Helper(this._ThumbnailsForCacheLoad, true, ref index) || this._IsSupressedTumbGeneration)
           continue;
-        if (this._ThumbnailsForCacheLoad.Count() > 1 || !this._IsSupressedTumbGeneration) {
+        if (true || this._ThumbnailsForCacheLoad.Count() > 1 || !this._IsSupressedTumbGeneration) {
           //Thread.Sleep(1);
+          //this._ThumbnailsForCacheLoad.TryDequeue(out index);
           var sho = this._ShellViewEx.Items[index];
-          if (sho.IsNeedRefreshing | !sho.IsThumbnailLoaded) {
+          if (sho.IsNeedRefreshing || !sho.IsThumbnailLoaded) {
             var addornerType = this.GetAddornerType(sho);
 
-            var result = sho.GetHBitmap(addornerType == 2 ? this._CurrentSize - 7 : this._CurrentSize, true, true);
+            var cache_hr = sho.GenerateAndCacheThumbnail((UInt32)this._CurrentSize, false, out WTS_CACHEFLAGS flags);
+
+            if (cache_hr == HResult.S_OK && !sho.IsNeedLoadFromStorage) {
+              
+              sho.IsOnlyLowQuality = (flags & WTS_CACHEFLAGS.WTS_LOWQUALITY) == WTS_CACHEFLAGS.WTS_LOWQUALITY;
+              if (!this._RedrawQueue.Contains(index))
+                this._RedrawQueue.Enqueue(index);
+            } else if (cache_hr == HResult.WTS_E_EXTRACTIONPENDING || sho.IsNeedLoadFromStorage) {
+              sho.IsNeedLoadFromStorage = true;
+              //System.Windows.Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action)(() => {
+              try {
+                var flags_storage = ThumbnailOptions.ResizeThumbnail;
+                IStorageItemProperties storageItem = StorageFile.GetFileFromPathAsync(sho.ParsingName).GetAwaiter().GetResult();
+                var thumb = storageItem?.GetThumbnailAsync(ThumbnailMode.SingleItem, (UInt32)this._CurrentSize, flags_storage).GetAwaiter().GetResult();
+                if (thumb != null) {
+                  var retry = 0;
+                  while (thumb.Type == ThumbnailType.Icon && retry < 20) {
+                    Thread.Sleep(100);
+                    thumb = storageItem?.GetThumbnailAsync(ThumbnailMode.SingleItem, (UInt32)this._CurrentSize, flags_storage).GetAwaiter().GetResult();
+                    retry++;
+                  }
+                  IBuffer buf;
+                  var inputBuffer = new Buffer(512);
+                  var destFileStream = new MemoryStream();
+                  while ((buf = thumb.ReadAsync(inputBuffer, inputBuffer.Capacity, InputStreamOptions.None).GetAwaiter().GetResult()).Length > 0) {
+                    destFileStream.WriteAsync(buf.ToArray()).GetAwaiter().GetResult();
+                  }
+
+                  sho.hThumbnailSave(destFileStream.ToArray(), addornerType == 2 ? this._CurrentSize - 7 : this._CurrentSize);
+                  thumb.Dispose();
+                  destFileStream.Dispose();
+                  sho.IsThumbnailLoaded = true;
+                  sho.IsIconLoaded = true;
+                  sho.IsNeedRefreshing = false;
+                  sho.IsOnlyLowQuality = thumb.ReturnedSmallerCachedSize;
+                  if (!this._RedrawQueue.Contains(index))
+                    this._RedrawQueue.Enqueue(index);
+
+                }
+              } catch { }
+              //}));
+
+
+            }
+
             sho.IsThumbnailLoaded = true;
             sho.IsIconLoaded = true;
             sho.IsNeedRefreshing = false;
+            //var result = sho.GetHBitmap(addornerType == 2 ? this._CurrentSize - 7 : this._CurrentSize, true, true);
+            //sho.IsThumbnailLoaded = true;
             //sho.IsIconLoaded = true;
-            if (result != IntPtr.Zero) {
-              var width = 0;
-              var height = 0;
-              Gdi32.ConvertPixelByPixel(result, out width, out height);
-              if (addornerType == 2) {
-                width = width + 7;
-                height = height + 7;
-              }
-              sho.IsOnlyLowQuality = (width > height && width != this._CurrentSize) || (width < height && height != this._CurrentSize) || (width == height && width != this._CurrentSize);
+            //sho.IsNeedRefreshing = false;
+            ////sho.IsIconLoaded = true;
+            //if (result != IntPtr.Zero) {
+            //  var width = 0;
+            //  var height = 0;
+            //  Gdi32.ConvertPixelByPixel(result, out width, out height);
+            //  if (addornerType == 2) {
+            //    width = width + 7;
+            //    height = height + 7;
+            //  }
+            //  sho.IsOnlyLowQuality = (width > height && width != this._CurrentSize) || (width < height && height != this._CurrentSize) || (width == height && width != this._CurrentSize);
 
-              if (!this._RedrawQueue.Contains(index))
-                this._RedrawQueue.Enqueue(index);
-              //this._ShellViewEx.RedrawItem(index);
-              Gdi32.DeleteObject(result);
-            }
+            //  if (!this._RedrawQueue.Contains(index))
+            //    this._RedrawQueue.Enqueue(index);
+            //  //this._ShellViewEx.RedrawItem(index);
+            //  Gdi32.DeleteObject(result);
+            //}
           }
           sho.Dispose();
         }
@@ -551,9 +641,9 @@ namespace ShellControls.ShellListView {
       try {
         while (!this._IsKIllThreads) {
           ////Application.DoEvents();
-          //ResetEvent?.WaitOne();
+          //this.ResetEvent?.WaitOne();
           if (this._RedrawQueue.IsEmpty) {
-            Thread.Sleep(1);
+            Thread.Sleep(10);
             Application.DoEvents();
             continue;
           }
@@ -579,6 +669,7 @@ namespace ShellControls.ShellListView {
     private void _UpdateSubitemValuesThreadRun() {
       try {
         while (!this._IsKIllThreads) {
+          //this.ResetEvent?.WaitOne();
           if (this._ItemsForSubitemsUpdate.IsEmpty) {
             Thread.Sleep(1);
             Application.DoEvents();
@@ -643,7 +734,7 @@ namespace ShellControls.ShellListView {
     private Boolean ThreadRun_Helper(ConcurrentQueue<Int32> queue, Boolean useComplexCheck, ref Int32 index) {
       try {
         if (queue.IsEmpty) {
-          Thread.Sleep(1);
+          Thread.Sleep(10);
           Application.DoEvents();
           return false;
         }

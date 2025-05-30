@@ -1,18 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Runtime.Intrinsics.X86;
 using System.Threading;
+using System.Windows;
+using System.Windows.Forms;
+using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using BExplorer.Shell;
 using BExplorer.Shell._Plugin_Interfaces;
 using BExplorer.Shell.Interop;
 using ShellLibrary.Interop;
+using Windows.Storage;
 using Windows.Storage.FileProperties;
+using Windows.Storage.Streams;
 using static BExplorer.Shell.Interop.Gdi32;
 using static ThumbnailGenerator.WindowsThumbnailProvider;
+using SystemProperties = BExplorer.Shell.SystemProperties;
 
 namespace ThumbnailGenerator {
   [Flags]
@@ -82,7 +93,7 @@ namespace ThumbnailGenerator {
       URL = 0x80068000
     }
 
-    internal enum HResult {
+    public enum HResult {
       Ok = 0x0000,
       False = 0x0001,
       InvalidArguments = unchecked((Int32)0x80070057),
@@ -95,7 +106,14 @@ namespace ThumbnailGenerator {
       Win32ErrorCanceled = 1223,
       Canceled = unchecked((Int32)0x800704C7),
       ResourceInUse = unchecked((Int32)0x800700AA),
-      AccessDenied = unchecked((Int32)0x80030005)
+      AccessDenied = unchecked((Int32)0x80030005),
+      WTS_E_FAILEDEXTRACTION = unchecked((int)0x8004b200),
+      WTS_E_EXTRACTIONTIMEDOUT = unchecked((int)0x8004b201),
+      WTS_E_SURROGATEUNAVAILABLE = unchecked((int)0x8004b202),
+      WTS_E_FASTEXTRACTIONNOTSUPPORTED = unchecked((int)0x8004b203),
+      WTS_E_DATAFILEUNAVAILABLE = unchecked((int)0x8004b204),
+      STG_E_FILENOTFOUND = unchecked((int)0x80030002),
+      WTS_E_EXTRACTIONPENDING = unchecked((int)0x8004B205),
     }
 
     [ComImport]
@@ -173,8 +191,8 @@ namespace ThumbnailGenerator {
         }
       }
     */
-    public static IntPtr GetThumbnail(IListItemEx item, Int32 width, Int32 height, ThumbnailOptions options, Boolean isForThumbnailSource) {
-      IntPtr hBitmap = GetHBitmap(item, width, height, options, isForThumbnailSource);
+    public static IntPtr GetThumbnail(IListItemEx item, Int32 width, Int32 height, ThumbnailOptions options, Boolean isForThumbnailSource, out HResult hr) {
+      IntPtr hBitmap = GetHBitmap(item, width, height, options, out hr, isForThumbnailSource);
 
       return hBitmap;
     }
@@ -231,21 +249,15 @@ namespace ThumbnailGenerator {
       }
     */
 
-    private static IntPtr GetHBitmap(IListItemEx item, Int32 width, Int32 height, ThumbnailOptions options, Boolean isForThumbnailSource = false) {
+    private static IntPtr GetHBitmap(IListItemEx item, Int32 width, Int32 height, ThumbnailOptions options, out HResult hr,  Boolean isForThumbnailSource = false) {
       Object nativeShellItem;
       var shellItem2Guid = new Guid(IShellImageFactoryGuid);
       var retCode = SHCreateItemFromIDList(item.PIDL, ref shellItem2Guid, out nativeShellItem);
 
       if (retCode != 0) {
+        hr = HResult.Fail;
         return IntPtr.Zero;
       }
-
-      var nativeSize = default(NativeSize);
-      nativeSize.Width = width;
-      nativeSize.Height = height;
-
-      IntPtr hBitmap;
-      var hr = ((IShellItemImageFactory)nativeShellItem).GetImage(nativeSize, options, out hBitmap);
 
       var perceivedType = PerceivedType.Unspecified;
       var percTypeVal = item.GetPropertyValue(SystemProperties.PerceivedType, typeof(PerceivedType))?.Value;
@@ -253,43 +265,147 @@ namespace ThumbnailGenerator {
         perceivedType = (PerceivedType)percTypeVal;
       }
 
-      if ((hr != HResult.Ok || isForThumbnailSource) && (perceivedType == PerceivedType.Image || perceivedType == PerceivedType.Video) && !item.IsFolder && (options & ThumbnailOptions.IconOnly) == 0) {
+      //var syncStatus = StorageSyncStatus.Unknown;
+      var syncStatusVal = item.GetPropertyValue(SystemProperties.StorageSyncStatus, typeof(StorageSyncStatus))?.Value;
+      //if (syncStatusVal != null) {
+      //  syncStatus = (StorageSyncStatus)syncStatusVal;
+      //}
+
+      if (syncStatusVal != null && !item.IsFolder && (options & ThumbnailOptions.IconOnly) == 0) {
+        item.IsNeedLoadFromStorage = true;
+      }
+
+      hr = HResult.NoObject;
+      IntPtr hBitmap = IntPtr.Zero;
+
+      //if (!((perceivedType == PerceivedType.Image || perceivedType == PerceivedType.Video) && !item.IsFolder && (options & ThumbnailOptions.IconOnly) == 0)) {
+      var nativeSize = default(NativeSize);
+      nativeSize.Width = width;
+      nativeSize.Height = height;
+
+      //IThumbnailCache thumbCache = null;
+
+      //if (item.ComInterface != null) {
+
+      //  var IID_IUnknown = new Guid("00000000-0000-0000-C000-000000000046");
+      //  var CLSID_LocalThumbnailCache = new Guid("50EF4544-AC9F-4A8E-B21B-8A26180DB13F");
+
+      //  IntPtr cachePointer;
+      //  Ole32.CoCreateInstance(ref CLSID_LocalThumbnailCache, IntPtr.Zero, Ole32.CLSCTX.ALL, ref IID_IUnknown, out cachePointer);
+
+      //  thumbCache = (IThumbnailCache)Marshal.GetObjectForIUnknown(cachePointer);
+      //}
+
+      //var tcacheFlags = WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE;
+
+      //if ((options & ThumbnailOptions.InCacheOnly) != 0 && !item.IsNeedLoadFromStorage) {
+      //  tcacheFlags |= WTS_FLAGS.WTS_INCACHEONLY;
+      //} else {
+      //  tcacheFlags |= WTS_FLAGS.WTS_EXTRACT;
+      //}
+      //ISharedBitmap bmp1 = null;
+      //var flags_1 = WTS_CACHEFLAGS.WTS_DEFAULT;
+      //var thumbId = default(WTS_THUMBNAILID);
+      //var res = BExplorer.Shell.Interop.HResult.S_OK;
+      //if ((options & ThumbnailOptions.IconOnly) == 0) {
+      //  try {
+      //    res = thumbCache.GetThumbnail(item.ComInterface, (UInt32)width, tcacheFlags, out bmp1, flags_1, thumbId);
+      //  } finally {
+      //    if (bmp1 != null) {
+      //      bmp1.Detach(out hBitmap);
+      //      //Gdi32.ConvertPixelByPixel(hBitmap, out var width1, out var height1);
+      //      Marshal.ReleaseComObject(bmp1);
+      //      hr = HResult.Ok;
+      //    }
+      //  }
+      //}
+
+      //if (res == BExplorer.Shell.Interop.HResult.WTS_E_FAILEDEXTRACTION || (options & ThumbnailOptions.IconOnly) != 0) {
+      //  hr = ((IShellItemImageFactory)nativeShellItem).GetImage(nativeSize, options, out hBitmap);
+      //}
+
+      if (!item.IsNeedLoadFromStorage || (options & ThumbnailOptions.IconOnly) != 0 || (item.IsFolder && isForThumbnailSource)) {
+        hr = ((IShellItemImageFactory)nativeShellItem).GetImage(nativeSize, options, out hBitmap);
+        //} 
+
+        //if (hr == HResult.Ok && !item.IsNeedLoadFromStorage) {
+        //  Gdi32.ConvertPixelByPixel(hBitmap, out var resWidth, out var resHeight);
+        //  item.IsNeedRefreshing = ((resWidth > resHeight && resWidth != width) || (resWidth < resHeight && resHeight != width) || (resWidth == resHeight && resWidth != width)) && !item.IsOnlyLowQuality;
+        //}
+      }
+
+
+
+      if (((((hr == HResult.NoObject) || isForThumbnailSource) && (perceivedType == PerceivedType.Image || perceivedType == PerceivedType.Video))) && (options & ThumbnailOptions.IconOnly) == 0) {
+        //var iShell = (IShellItem)nativeShellItem;
+        //iShell.BindToHandler(IntPtr.Zero, BHID.SThumbnailhandler, typeof(IThumbnailProvider).GUID, out IntPtr ress);
+        //var iThumbnailProvider = (IThumbnailProvider)Marshal.GetTypedObjectForIUnknown(ress, typeof(IThumbnailProvider));
+
+        //var resTP = iThumbnailProvider.GetThumbnail((UInt32)width, out hBitmap, out var alphaType);
+
         var flags = Windows.Storage.FileProperties.ThumbnailOptions.ResizeThumbnail;
-        if ((options & ThumbnailOptions.InCacheOnly) == ThumbnailOptions.InCacheOnly) {
-          flags |= Windows.Storage.FileProperties.ThumbnailOptions.ReturnOnlyIfCached;
-        }
 
-        Windows.Storage.IStorageItemProperties storageItem = null;
         try {
-          if (item.IsFileSystem) {
+          if (item.IsFileSystem && isForThumbnailSource) {
+            IStorageItemProperties storageItem = item.IsFolder ? Windows.Storage.StorageFolder.GetFolderFromPathAsync(item.ParsingName).GetAwaiter().GetResult() : Windows.Storage.StorageFile.GetFileFromPathAsync(item.ParsingName).GetAwaiter().GetResult();
+            var thumb = storageItem?.GetThumbnailAsync(ThumbnailMode.SingleItem, (UInt32)width, flags).GetAwaiter().GetResult();
+            if (thumb != null) {
+              Debug.WriteLine($"Returned thumb for path: {item.ParsingName}!!!!");
+              var retry = 0;
+              while ((isForThumbnailSource) && thumb != null && thumb.Type == ThumbnailType.Icon && retry < 10) {
+                Thread.Sleep(100);
+                thumb = item.StorageItem?.GetThumbnailAsync(ThumbnailMode.SingleItem, (UInt32)width, flags).GetAwaiter().GetResult();
+                retry++;
+              }
+              IBuffer buf;
+              var inputBuffer = new Windows.Storage.Streams.Buffer(512);
+              var destFileStream = new MemoryStream();
+              while ((buf = thumb.ReadAsync(inputBuffer, inputBuffer.Capacity, Windows.Storage.Streams.InputStreamOptions.None).GetAwaiter().GetResult()).Length > 0) {
+                destFileStream.WriteAsync(buf.ToArray()).GetAwaiter().GetResult();
+              }
 
-            storageItem = item.IsFolder ? Windows.Storage.StorageFolder.GetFolderFromPathAsync(item.ParsingName).GetAwaiter().GetResult() : Windows.Storage.StorageFile.GetFileFromPathAsync(item.ParsingName).GetAwaiter().GetResult();
+              if (thumb != null && thumb.Type == ThumbnailType.Image) {
+                using (var thumbNailStream = destFileStream) {
+                  var bmp = (Bitmap)Image.FromStream(thumbNailStream);
+
+                  if (thumb.ContentType == "image/bmp") {
+                    var bmp_fixed = Gdi32.UnpremultiplyAlpha(bmp);
+                    hBitmap = bmp_fixed.GetHbitmap();
+                  } else {
+                    hBitmap = bmp.GetHbitmap();
+                  }
+
+                  bmp.Dispose();
+                  item.IsThumbnailLoaded = true;
+                  item.IsNeedRefreshing = thumb.ReturnedSmallerCachedSize;
+                  item.IsIconLoaded = true;
+                  hr = HResult.Ok;
+                }
+              }
+              thumb.Dispose();
+            }
+
           }
-        } catch {
-          hBitmap = IntPtr.Zero;
-          item.IsNeedRefreshing = true;
-        }
 
-        if (storageItem != null) {
-          var thumb = storageItem?.GetThumbnailAsync(ThumbnailMode.SingleItem, (UInt32)width, flags).GetAwaiter().GetResult();
-          var retry = 0;
-          while (isForThumbnailSource && thumb != null && thumb.Type == ThumbnailType.Icon && retry < 10) {
-            Thread.Sleep(100);
-            thumb = storageItem?.GetThumbnailAsync(ThumbnailMode.SingleItem, (UInt32)width, flags).GetAwaiter().GetResult();
-            retry++;
-          }
-
-          if (thumb != null && thumb.Type == ThumbnailType.Image) {
-            using (var thumbNailStream = thumb.AsStreamForRead()) {
-              var bmp = (Bitmap)Image.FromStream(thumbNailStream);
-              hBitmap = bmp.GetHbitmap();
-              bmp.Dispose();
+          if (!isForThumbnailSource) {
+            System.Windows.Application.Current.Dispatcher.Invoke(DispatcherPriority.Normal, (Action)(() => { hBitmap = item.hThumbnail(width, out var isLowQuality); }));
+            //hBitmap = item.hThumbnail(width, out var isLowQuality);
+            if (hBitmap != IntPtr.Zero) {
+              //Gdi32.ConvertPixelByPixel(hBitmap, out var resWidth, out var resHeight);
               item.IsThumbnailLoaded = true;
-              item.IsNeedRefreshing = false;
+              item.IsNeedRefreshing = false; //((resWidth > resHeight && resWidth != width) || (resWidth < resHeight && resHeight != width) || (resWidth == resHeight && resWidth != width)) && !item.IsOnlyLowQuality;
+              item.IsIconLoaded = true;
               hr = HResult.Ok;
             }
           }
+        } catch {
+          //item.IsNeedRefreshing = true;
+          Marshal.ReleaseComObject(nativeShellItem);
+          return IntPtr.Zero;
+          //hBitmap = IntPtr.Zero;
+          //item.IsNeedRefreshing = true;
         }
+
       }
 
       Marshal.ReleaseComObject(nativeShellItem);
@@ -297,6 +413,12 @@ namespace ThumbnailGenerator {
       if (hr == HResult.Ok) {
         return hBitmap;
       }
+
+      item.IsThumbnailLoaded = true;
+      item.IsNeedRefreshing = true;
+      item.IsOnlyLowQuality = false;
+      item.IsIconLoaded = true;
+      //item.IsNeedLoadFromStorage = true;
 
       return IntPtr.Zero;
     }

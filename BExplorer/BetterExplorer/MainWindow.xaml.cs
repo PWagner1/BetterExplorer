@@ -14,7 +14,7 @@ using WPFUI.Win32;
 
 namespace BetterExplorer {
   using BEHelper;
-  using BetterExplorer.UsbEject;
+  //using BetterExplorer.UsbEject;
   using BetterExplorerControls;
   using BExplorer.Shell;
   using BExplorer.Shell._Plugin_Interfaces;
@@ -934,75 +934,75 @@ namespace BetterExplorer {
     }
 
     private void EjectDisk(char DriveLetter) {
-      Thread t = new Thread(() => {
-        Thread.Sleep(10);
-        var vdc = new VolumeDeviceClass();
-        foreach (Volume item in vdc.Devices) {
-          if (this.GetDriveLetterFromDrivePath(item.LogicalDrive) == DriveLetter) {
-            var veto = item.Eject(false);
-            if (veto != Native.PNP_VETO_TYPE.TypeUnknown) {
-              if (veto == Native.PNP_VETO_TYPE.Ok) {
-                this.Dispatcher.BeginInvoke(DispatcherPriority.Normal,
-                                (Action)(() => {
-                                  //this.beNotifyIcon.ShowBalloonTip("Information", $"It is safe to remove {item.LogicalDrive}", Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info);
-                                  var tabsForRemove = this.tcMain.Items.OfType<Wpf.Controls.TabItem>().Where(w => {
-                                    var root = String.Empty;
-                                    try {
-                                      root = Path.GetPathRoot(w.ShellObject.ParsingName.ToShellParsingName());
-                                    } catch { }
-                                    return !String.IsNullOrEmpty(root) && (w.ShellObject.IsFileSystem &&
-                                                    root.ToLowerInvariant() == $"{DriveLetter}:\\".ToLowerInvariant());
-                                  }).ToArray();
+      //Thread t = new Thread(() => {
+      //  Thread.Sleep(10);
+      //  var vdc = new VolumeDeviceClass();
+      //  foreach (Volume item in vdc.Devices) {
+      //    if (this.GetDriveLetterFromDrivePath(item.LogicalDrive) == DriveLetter) {
+      //      var veto = item.Eject(false);
+      //      if (veto != Native.PNP_VETO_TYPE.TypeUnknown) {
+      //        if (veto == Native.PNP_VETO_TYPE.Ok) {
+      //          this.Dispatcher.BeginInvoke(DispatcherPriority.Normal,
+      //                          (Action)(() => {
+      //                            //this.beNotifyIcon.ShowBalloonTip("Information", $"It is safe to remove {item.LogicalDrive}", Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info);
+      //                            var tabsForRemove = this.tcMain.Items.OfType<Wpf.Controls.TabItem>().Where(w => {
+      //                              var root = String.Empty;
+      //                              try {
+      //                                root = Path.GetPathRoot(w.ShellObject.ParsingName.ToShellParsingName());
+      //                              } catch { }
+      //                              return !String.IsNullOrEmpty(root) && (w.ShellObject.IsFileSystem &&
+      //                                              root.ToLowerInvariant() == $"{DriveLetter}:\\".ToLowerInvariant());
+      //                            }).ToArray();
 
-                                  foreach (Wpf.Controls.TabItem tab in tabsForRemove) {
-                                    this.tcMain.RemoveTabItem(tab);
-                                  }
-                                }));
-              } else {
-                var message = String.Empty;
-                var obj = new ShellItem(item.LogicalDrive);
-                switch (veto) {
-                  case Native.PNP_VETO_TYPE.Ok:
-                    break;
-                  case Native.PNP_VETO_TYPE.TypeUnknown:
-                    break;
-                  case Native.PNP_VETO_TYPE.LegacyDevice:
-                    break;
-                  case Native.PNP_VETO_TYPE.PendingClose:
-                    break;
-                  case Native.PNP_VETO_TYPE.WindowsApp:
-                    break;
-                  case Native.PNP_VETO_TYPE.WindowsService:
-                    break;
-                  case Native.PNP_VETO_TYPE.OutstandingOpen:
-                    message = $"The device {obj.GetDisplayName(SIGDN.NORMALDISPLAY)} can not be disconnected because is in use!";
-                    break;
-                  case Native.PNP_VETO_TYPE.Device:
-                    break;
-                  case Native.PNP_VETO_TYPE.Driver:
-                    break;
-                  case Native.PNP_VETO_TYPE.IllegalDeviceRequest:
-                    break;
-                  case Native.PNP_VETO_TYPE.InsufficientPower:
-                    break;
-                  case Native.PNP_VETO_TYPE.NonDisableable:
-                    message = $"The device {obj.GetDisplayName(SIGDN.NORMALDISPLAY)} does not support disconnecting!";
-                    break;
-                  case Native.PNP_VETO_TYPE.LegacyDriver:
-                    break;
-                  default:
-                    break;
-                }
+      //                            foreach (Wpf.Controls.TabItem tab in tabsForRemove) {
+      //                              this.tcMain.RemoveTabItem(tab);
+      //                            }
+      //                          }));
+      //        } else {
+      //          var message = String.Empty;
+      //          var obj = new ShellItem(item.LogicalDrive);
+      //          switch (veto) {
+      //            case Native.PNP_VETO_TYPE.Ok:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.TypeUnknown:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.LegacyDevice:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.PendingClose:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.WindowsApp:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.WindowsService:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.OutstandingOpen:
+      //              message = $"The device {obj.GetDisplayName(SIGDN.NORMALDISPLAY)} can not be disconnected because is in use!";
+      //              break;
+      //            case Native.PNP_VETO_TYPE.Device:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.Driver:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.IllegalDeviceRequest:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.InsufficientPower:
+      //              break;
+      //            case Native.PNP_VETO_TYPE.NonDisableable:
+      //              message = $"The device {obj.GetDisplayName(SIGDN.NORMALDISPLAY)} does not support disconnecting!";
+      //              break;
+      //            case Native.PNP_VETO_TYPE.LegacyDriver:
+      //              break;
+      //            default:
+      //              break;
+      //          }
 
-                //this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action)(() => this.beNotifyIcon.ShowBalloonTip("Error", message, Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Error)));
-              }
-            }
-            break;
-          }
-        }
-      });
-      t.SetApartmentState(ApartmentState.STA);
-      t.Start();
+      //          //this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action)(() => this.beNotifyIcon.ShowBalloonTip("Error", message, Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Error)));
+      //        }
+      //      }
+      //      break;
+      //    }
+      //  }
+      //});
+      //t.SetApartmentState(ApartmentState.STA);
+      //t.Start();
     }
 
     private void btnEjectDevice_Click(object sender, RoutedEventArgs e) {

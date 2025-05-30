@@ -1,22 +1,27 @@
-﻿using System.Runtime.CompilerServices;
-using System.IO;
-using BExplorer.Shell.Interop;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SQLite;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Media.Imaging;
-using ThumbnailGenerator;
-using Size = System.Drawing.Size;
-using System.Text;
-using System.Linq;
 using System.Windows.Interop;
+using System.Windows.Media.Imaging;
+using BExplorer.Shell.Interop;
 using ShellLibrary.Interop;
+using ThumbnailGenerator;
 using WPFUI.Win32;
+using Size = System.Drawing.Size;
 
 namespace BExplorer.Shell._Plugin_Interfaces {
+  using System.Data.Common;
   using System.Drawing;
+  using System.Reflection;
   using System.Windows.Media;
 
   /// <summary>
@@ -31,10 +36,74 @@ namespace BExplorer.Shell._Plugin_Interfaces {
 
     #endregion Private Members
 
+    private string _DBPath = Path.Combine(KnownFolders.RoamingAppData.ParsingName, @"BExplorer\Settings.sqlite");
+
     #region IListItemEx Members
 
     public IntPtr ParentPIDL { get; set; }
     public IntPtr EnumPIDL { get; set; }
+
+    /// <inheritdoc />
+    public SQLiteConnection m_dbConnection { get; set; }
+
+    public IntPtr hThumbnail(Int32 size, out Boolean isDifferentSize) {
+
+      isDifferentSize = false;
+      if (this.m_dbConnection == null) {
+        //this.m_dbConnection = new SQLiteConnection($"Data Source={this._DBPath};Version=3;Pooling=True;Max Pool Size=100;Timeout=1;");
+        //this.m_dbConnection.OpenAsync().GetAwaiter().GetResult();
+        return IntPtr.Zero;
+      }
+      //var m_dbConnection = new System.Data.SQLite.SQLiteConnection($"Data Source={this._DBPath};Version=3;Pooling=True;Max Pool Size=100;Timeout=1;");
+      try {
+        //m_dbConnection.OpenAsync().GetAwaiter().GetResult();
+
+        var command1 = new System.Data.SQLite.SQLiteCommand("SELECT thumbnail FROM thumbnails WHERE path=@path AND size=@size", this.m_dbConnection);
+
+        command1.Parameters.AddWithValue("@path", this.ParsingName);
+        command1.Parameters.AddWithValue("@size", size);
+
+        var result = command1.ExecuteScalarAsync().GetAwaiter().GetResult() as Byte[];
+
+        //m_dbConnection.CloseAsync();
+        if (result == null) {
+          return IntPtr.Zero;
+        }
+
+        using (var ms = new MemoryStream(result)) {
+          var bmp = new Bitmap(ms);
+          var hbmp = bmp.GetHbitmap();
+          bmp.Dispose();
+          return hbmp;
+        }
+        
+      } catch (Exception) {
+        //m_dbConnection.CloseAsync();
+      }
+      return IntPtr.Zero;
+    }
+
+    public void hThumbnailSave(Byte[] bytes, Int32 size) {
+      if (this.m_dbConnection == null) {
+        //this.m_dbConnection = new SQLiteConnection($"Data Source={this._DBPath};Version=3;Pooling=True;Max Pool Size=100;Timeout=1;");
+        //this.m_dbConnection.OpenAsync().GetAwaiter().GetResult();
+        return;
+      }
+      //var m_dbConnection = new System.Data.SQLite.SQLiteConnection($"Data Source={this._DBPath};Version=3;Pooling=True;Max Pool Size=100;Timeout=1;");
+      try {
+        //m_dbConnection.OpenAsync().GetAwaiter().GetResult();
+
+        var command1 = new System.Data.SQLite.SQLiteCommand("INSERT INTO thumbnails (path, thumbnail, size) VALUES (@path, @thumbnail, @size)", this.m_dbConnection);
+
+        command1.Parameters.AddWithValue("@path", this.ParsingName);
+        command1.Parameters.AddWithValue("@thumbnail", bytes);
+        command1.Parameters.AddWithValue("@size", size);
+
+        command1.ExecuteNonQueryAsync(); //.ContinueWith((task => m_dbConnection.CloseAsync()));
+      } catch (Exception) {
+        //m_dbConnection.CloseAsync();
+      }
+    }
 
     /// <summary>The COM interface for this item</summary>
     public IShellItem ComInterface {
@@ -62,6 +131,9 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     /// <summary>Does the current item need to be refreshed in the ShellListView</summary>
     public Boolean IsNeedRefreshing { get; set; }
 
+    /// <inheritdoc />
+    public Boolean IsThumbnailExtracting { get; set; }
+
     /// <summary>Assigned values but never used</summary>
     public Boolean IsInvalid { get; set; }
 
@@ -71,6 +143,9 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     public Boolean IsOnlyLowQuality { get; set; }
 
     public Boolean IsThumbnailLoaded { get; set; }
+
+    /// <inheritdoc />
+    public Boolean IsNeedLoadFromStorage { get; set; }
 
     public Boolean IsInitialised { get; set; }
 
@@ -201,6 +276,9 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     /// <summary>The file system path</summary>
     public String FileSystemPath => this.GetDisplayName(SIGDN.FILESYSPATH);
 
+    /// <inheritdoc />
+    public String CompareID { get; set; }
+
     /// <summary>
     /// Returns true if folder can be browsed
     /// </summary>
@@ -319,11 +397,16 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     }
 
     public void Initialize(IntPtr lvHandle, String path, Int32 index) {
-      var shellItem = Shell32.SHCreateItemFromParsingName(path, IntPtr.Zero, typeof(IShellItem).GUID);
-      this.ParentPIDL = IntPtr.Zero;
-      this.EnumPIDL = Shell32.SHGetIDListFromObject(shellItem);
-      Marshal.ReleaseComObject(shellItem);
-      //this.ParentHandle = lvHandle;
+      try {
+        var shellItem = Shell32.SHCreateItemFromParsingName(path, IntPtr.Zero, typeof(IShellItem).GUID);
+        this.ParentPIDL = IntPtr.Zero;
+        this.EnumPIDL = Shell32.SHGetIDListFromObject(shellItem);
+        Marshal.ReleaseComObject(shellItem);
+      } catch (TargetInvocationException ex) {
+        // TODO: Add log here
+      }
+
+      // this.ParentHandle = lvHandle;
 
       this.OverlayIconIndex = -1;
       this.ShieldedIconIndex = -1;
@@ -424,6 +507,7 @@ namespace BExplorer.Shell._Plugin_Interfaces {
         var fsi = new FileSystemListItem();
         try {
           fsi.InitializeWithParent(this.PIDL, this.ParentHandle, pidl, i++);
+          fsi.CompareID = fsi.ParsingName;
         } catch {
           continue;
         }
@@ -435,12 +519,15 @@ namespace BExplorer.Shell._Plugin_Interfaces {
         fsi.IsParentSearchFolder = this.IsSearchFolder;
         fsi.Dispose();
         yield return fsi;
+        //Task.Run((() => {
+        //  var a = fsi.StorageItem;
+        //}));
         //Shell32.ILFree(pidl);
         result = enumId.Next(1, out pidl, out count);
       }
 
       if (folder != null) {
-        Marshal.FinalReleaseComObject(folder);
+        Marshal.ReleaseComObject(folder);
       }
 
       if (result != HResult.S_FALSE) {
@@ -499,11 +586,12 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     public PropVariant GetPropertyValue(PROPERTYKEY pkey, Type type) {
       var pvar = new PropVariant();
       var comObject = this.ComInterface;
-      var isi2 = (IShellItem2)comObject;
-      if (isi2 == null) {
+      if (comObject == null) {
+        this.Dispose();
         return PropVariant.FromObject(null);
       }
 
+      var isi2 = (IShellItem2)comObject;
       isi2.GetProperty(ref pkey, pvar);
       Marshal.ReleaseComObject(comObject);
       this.Dispose();
@@ -515,7 +603,7 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     public BitmapSource ThumbnailBitmapSource => this.ThumbnailSource(16, ShellThumbnailFormatOption.IconOnly, ShellThumbnailRetrievalOption.Default);
 
     public BitmapSource ThumbnailSource(Int32 size, ShellThumbnailFormatOption format, ShellThumbnailRetrievalOption source) {
-      var hBitmap = this.GetHBitmap(size, format == ShellThumbnailFormatOption.ThumbnailOnly, source == ShellThumbnailRetrievalOption.Default, format == ShellThumbnailFormatOption.Default, isForThumbnailSource: true);
+      var hBitmap = this.GetHBitmap(size, format == ShellThumbnailFormatOption.ThumbnailOnly, out var hr, source == ShellThumbnailRetrievalOption.Default, format == ShellThumbnailFormatOption.Default, isForThumbnailSource: true);
 
       // return a System.Media.Imaging.BitmapSource
       // Use interop to create a BitmapSource from hBitmap.
@@ -614,6 +702,39 @@ namespace BExplorer.Shell._Plugin_Interfaces {
       get { return this.ThumbnailSource(16, ShellThumbnailFormatOption.Default, ShellThumbnailRetrievalOption.Default); }
     }
 
+    /// <inheritdoc />
+    public HResult GenerateAndCacheThumbnail(UInt32 iconSize, Boolean inCacheOnly, out WTS_CACHEFLAGS flags) {
+      IThumbnailCache thumbCache = null;
+
+      if (this.ComInterface != null) {
+
+        var IID_IUnknown = new Guid("00000000-0000-0000-C000-000000000046");
+        var CLSID_LocalThumbnailCache = new Guid("50EF4544-AC9F-4A8E-B21B-8A26180DB13F");
+
+        IntPtr cachePointer;
+        Ole32.CoCreateInstance(ref CLSID_LocalThumbnailCache, IntPtr.Zero, Ole32.CLSCTX.INPROC_SERVER, ref IID_IUnknown, out cachePointer);
+
+        thumbCache = (IThumbnailCache)Marshal.GetObjectForIUnknown(cachePointer);
+      }
+
+      var res = HResult.S_OK;
+      ISharedBitmap bmp = null;
+      flags = WTS_CACHEFLAGS.WTS_DEFAULT;
+      var thumbId = default(WTS_THUMBNAILID);
+      try {
+        res = thumbCache.GetThumbnail(this.ComInterface, iconSize, (inCacheOnly ? WTS_FLAGS.WTS_INCACHEONLY : WTS_FLAGS.WTS_EXTRACT) | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE, out bmp, out flags, thumbId);
+      } finally {
+        if (bmp != null) {
+          bmp.GetSize(out var size);
+          if (((size.Width > size.Height && size.Width != iconSize) || (size.Width < size.Height && size.Height != iconSize) || (size.Width == size.Height && size.Width != iconSize))) {
+            flags = flags | WTS_CACHEFLAGS.WTS_LOWQUALITY;
+          }
+          Marshal.ReleaseComObject(bmp);
+        }
+      }
+      return res;
+    }
+
     public HResult ExtractAndDrawThumbnail(IntPtr hdc, UInt32 iconSize, out WTS_CACHEFLAGS flags, User32.RECT iconBounds, out Boolean retrieved, Boolean isHidden, Boolean isRefresh = false) {
       IThumbnailCache thumbCache = null;
 
@@ -635,7 +756,7 @@ namespace BExplorer.Shell._Plugin_Interfaces {
       try {
         retrieved = false;
         res = thumbCache.GetThumbnail(this._Item.ComInterface, iconSize,
-          isRefresh ? (WTS_FLAGS.WTS_FORCEEXTRACTION | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE) : (WTS_FLAGS.WTS_INCACHEONLY | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE), out bmp, flags, thumbId);
+          isRefresh ? (WTS_FLAGS.WTS_FORCEEXTRACTION | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE) : (WTS_FLAGS.WTS_INCACHEONLY | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE), out bmp, out flags, thumbId);
         var hBitmap = IntPtr.Zero;
         if (bmp != null) {
           bmp.GetSharedBitmap(out hBitmap);
@@ -655,7 +776,7 @@ namespace BExplorer.Shell._Plugin_Interfaces {
       return res;
     }
 
-    public IntPtr GetHBitmap(Int32 iconSize, Boolean isThumbnail, Boolean isForce = false, Boolean isBoth = false, Boolean isForThumbnailSource = false) {
+    public IntPtr GetHBitmap(Int32 iconSize, Boolean isThumbnail, out WindowsThumbnailProvider.HResult hr, Boolean isForce = false, Boolean isBoth = false, Boolean isForThumbnailSource = false) {
       var options = ThumbnailOptions.None;
       if (isThumbnail) {
         options = ThumbnailOptions.ThumbnailOnly;
@@ -667,7 +788,7 @@ namespace BExplorer.Shell._Plugin_Interfaces {
           options |= ThumbnailOptions.IconOnly;
         }
       }
-      return WindowsThumbnailProvider.GetThumbnail(this, iconSize, iconSize, options, isForThumbnailSource);
+      return WindowsThumbnailProvider.GetThumbnail(this, iconSize, iconSize, options, isForThumbnailSource, out hr);
     }
 
     public static FileSystemListItem ToFileSystemItem(IntPtr parentHandle, String path) {
@@ -780,13 +901,17 @@ namespace BExplorer.Shell._Plugin_Interfaces {
       get {
         try {
           if (!this.IsFileSystem) {
+            this._StorageItem = null;
             return null;
           }
 
-          this._StorageItem = this.IsFolder ? Windows.Storage.StorageFolder.GetFolderFromPathAsync(this.ParsingName).GetAwaiter().GetResult() : Windows.Storage.StorageFile.GetFileFromPathAsync(this.ParsingName).GetAwaiter().GetResult();
+          if (this._StorageItem == null) {
+            this._StorageItem = this.IsFolder ? Windows.Storage.StorageFolder.GetFolderFromPathAsync(this.ParsingName).GetAwaiter().GetResult() : Windows.Storage.StorageFile.GetFileFromPathAsync(this.ParsingName).GetAwaiter().GetResult();
+          }
 
           return this._StorageItem;
         } catch {
+          this._StorageItem = null;
           return null;
         }
       }
@@ -795,10 +920,19 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     public IListItemEx Clone(Boolean isHardCloning = false) {
       if (isHardCloning) {
         var newObj = ToFileSystemItem(this.ParentHandle, this.ParsingName.ToShellParsingName());
+        newObj.CompareID = this.CompareID;
+        newObj.ItemIndex = this.ItemIndex;
+        newObj.m_dbConnection = this.m_dbConnection;
+        newObj.GroupIndex = this.GroupIndex;
         this.Dispose();
         return newObj;
       }
-      return ToFileSystemItem(this.ParentHandle, this.PIDL);
+      var result = ToFileSystemItem(this.ParentHandle, this.PIDL);
+      result.CompareID = this.CompareID;
+      result.ItemIndex = this.ItemIndex;
+      result.m_dbConnection = this.m_dbConnection;
+      result.GroupIndex = this.GroupIndex;
+      return result;
     }
 
     #endregion IListItemEx Members
@@ -824,7 +958,9 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     public void Dispose() {
       try {
         this._Item?.Dispose();
-        Marshal.ReleaseComObject(this.ComInterface);
+        if (this.ComInterface != null) {
+          Marshal.ReleaseComObject(this.ComInterface);
+        }
       } catch (Exception ex) {
 
       }

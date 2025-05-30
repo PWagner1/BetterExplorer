@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\packages\EntityFramework.6.4.4\build\EntityFramework.props" Condition="Exists('..\packages\EntityFramework.6.4.4\build\EntityFramework.props')" />
   <PropertyGroup>
-    <TargetFramework>net6.0-windows8.0</TargetFramework>
+    <TargetFramework>net9.0-windows8.0</TargetFramework>
     <ExpressionBlendVersion>4.0.20525.0</ExpressionBlendVersion>
     <OutputType>Library</OutputType>
     <DefaultClrNameSpace>Progress</DefaultClrNameSpace>
