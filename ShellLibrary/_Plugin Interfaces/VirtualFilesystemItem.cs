@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data.SQLite;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -8,6 +9,8 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Windows.Media.Imaging;
 using BExplorer.Shell.Interop;
 using ShellLibrary.Interop;
+using Windows.Storage;
+using ThumbnailGenerator;
 using WPFUI.Win32;
 
 namespace BExplorer.Shell._Plugin_Interfaces {
@@ -67,6 +70,29 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     }
 
     bool _disposed = false;
+
+    /// <inheritdoc />
+    public SQLiteConnection m_dbConnection { get; set; }
+
+    /// <inheritdoc />
+    public IntPtr hThumbnail(Int32 size, out Boolean isDifferentSize) {
+      throw new NotImplementedException();
+    }
+
+    /// <inheritdoc />
+    public void hThumbnailSave(Byte[] bytes, Int32 size) {
+      throw new NotImplementedException();
+    }
+
+    /// <inheritdoc />
+    public IntPtr hThumbnail(SQLiteConnection m_dbConnection, Int32 size, out Boolean isDifferentSize) {
+      throw new NotImplementedException();
+    }
+
+    /// <inheritdoc />
+    public void hThumbnailSave(SQLiteConnection m_dbConnection, Byte[] bytes, Int32 size) {
+      throw new NotImplementedException();
+    }
     public IntPtr ParentPIDL { get; set; }
     public IntPtr EnumPIDL { get; set; }
     public IExtractIconPWFlags GetIconType() {
@@ -98,13 +124,22 @@ namespace BExplorer.Shell._Plugin_Interfaces {
     public String DisplayName { get; }
     public String Extension { get; }
     public String FileSystemPath { get; }
+
+    /// <inheritdoc />
+    public String CompareID { get; set; }
     public Int32 ItemIndex { get; set; }
     public IntPtr ParentHandle { get; set; }
     public Boolean IsNeedRefreshing { get; set; }
+
+    /// <inheritdoc />
+    public Boolean IsThumbnailExtracting { get; set; }
     public Boolean IsInvalid { get; set; }
     public Boolean IsProcessed { get; set; }
     public Boolean IsOnlyLowQuality { get; set; }
     public Boolean IsThumbnailLoaded { get; set; }
+
+    /// <inheritdoc />
+    public Boolean IsNeedLoadFromStorage { get; set; }
     public Boolean IsInitialised { get; set; }
     public Int32 OverlayIconIndex { get; set; }
     public Int32 GroupIndex { get; set; }
@@ -194,8 +229,15 @@ namespace BExplorer.Shell._Plugin_Interfaces {
       throw new NotImplementedException();
     }
 
+    /// <inheritdoc />
+    public HResult GenerateAndCacheThumbnail(UInt32 iconSize, Boolean inCacheOnly, out WTS_CACHEFLAGS flags) {
+      throw new NotImplementedException();
+    }
+
     public HResult NavigationStatus { get; set; }
-    public IntPtr GetHBitmap(Int32 iconSize, Boolean isThumbnail, Boolean isForce = false, Boolean isBoth = false) {
+
+    /// <inheritdoc />
+    public IntPtr GetHBitmap(Int32 iconSize, Boolean isThumbnail, out WindowsThumbnailProvider.HResult hr, Boolean isForce = false, Boolean isBoth = false, Boolean isForThumbnailSource = false) {
       throw new NotImplementedException();
     }
 
@@ -221,6 +263,8 @@ namespace BExplorer.Shell._Plugin_Interfaces {
 
     public Int32[] cColumns { get; set; }
     public User32.RECT LabelBounds { get; set; }
+
+    IStorageItemProperties IListItemEx.StorageItem => throw new NotImplementedException();
 
     public void Dispose() {
       if (!_disposed) {

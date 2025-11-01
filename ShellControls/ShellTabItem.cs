@@ -15,6 +15,9 @@ namespace ShellControls {
     public static readonly DependencyProperty IconProperty = DependencyProperty.Register("Icon", typeof(object), typeof(ShellTabItem), new UIPropertyMetadata(null));
     public static readonly DependencyProperty AllowDeleteProperty = DependencyProperty.Register("AllowDelete", typeof(bool), typeof(ShellTabItem), new UIPropertyMetadata(true));
     public static readonly DependencyProperty IsBusyProperty = DependencyProperty.Register("IsBusy", typeof(bool), typeof(ShellTabItem), new UIPropertyMetadata(false));
+    public static readonly DependencyProperty IsSeparatorVisibleProperty = DependencyProperty.Register("IsSeparatorVisible", typeof(bool), typeof(ShellTabItem), new UIPropertyMetadata(true));
+    public static readonly DependencyProperty IsItemSelectedProperty = DependencyProperty.Register("IsItemSelected", typeof(bool), typeof(ShellTabItem), new FrameworkPropertyMetadata(false, OnItemIsSelectedChanged));
+    public static readonly DependencyProperty IsItemMouseHoverProperty = DependencyProperty.Register("IsItemMouseHover", typeof(bool), typeof(ShellTabItem), new FrameworkPropertyMetadata(false, OnMouseIsOverChanged));
     //public static readonly DependencyProperty IsSelectedTabProperty =
     //  DependencyProperty.Register("IsSelectedTab",
     //    typeof(bool),
@@ -56,6 +59,21 @@ namespace ShellControls {
     public bool IsBusy {
       get { return (bool)GetValue(IsBusyProperty); }
       set { SetValue(IsBusyProperty, value); }
+    }
+
+    public bool IsSeparatorVisible {
+      get { return (bool)GetValue(IsSeparatorVisibleProperty); }
+      set { SetValue(IsSeparatorVisibleProperty, value); }
+    }
+
+    public bool IsItemSelected {
+      get { return (bool)GetValue(IsItemSelectedProperty); }
+      set { SetValue(IsItemSelectedProperty, value); }
+    }
+
+    public bool IsItemMouseHover {
+      get { return (bool)GetValue(IsItemMouseHoverProperty); }
+      set { SetValue(IsItemMouseHoverProperty, value); }
     }
 
     public IListItemEx AssociatedItem { get; set; }
@@ -106,6 +124,65 @@ namespace ShellControls {
       //}
     }
 
+    private static void OnMouseIsOverChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
+      var tabItem = d as ShellTabItem;
+      var tabControl = tabItem?.Parent as TabControl;
+      var index = tabControl.Items.IndexOf(tabItem);
+      if (index == -1) {
+        return;
+      }
+
+      if (index > 0) {
+        if (tabControl.Items[index - 1] is ShellTabItem prevTab) {
+          if ((bool)e.NewValue) {
+            prevTab.IsSeparatorVisible = false;
+          } else if (!prevTab.IsSelected) {
+            prevTab.IsSeparatorVisible = true;
+          }
+        }
+      }
+      //if (index < tabControl.Items.Count - 1) {
+      //  if (tabControl.Items[index + 1] is ShellTabItem nextItem && (nextItem.IsSelected || nextItem.IsMouseOver)) {
+      //    return;
+      //  }
+      //}
+      // handle code here. example:
+      //if ((bool)e.NewValue == true)
+      //  ((Rectangle)d).Fill = Brushes.Yellow;
+      //else
+      //  ((Rectangle)d).Fill = Brushes.Black;
+    }
+
+    private static void OnItemIsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) {
+      var tabItem = d as ShellTabItem;
+      if (tabItem != null) {
+        tabItem.IsSeparatorVisible = false;
+      }
+      var tabControl = tabItem?.Parent as TabControl;
+      if (tabControl == null) {
+        return;
+      }
+      var index = tabControl.Items.IndexOf(tabItem);
+      if (index == -1) {
+        return;
+      }
+
+      if (index > 0) {
+        if (tabControl.Items[index - 1] is ShellTabItem prevTab) {
+          if ((bool)e.NewValue) {
+            prevTab.IsSeparatorVisible = false;
+          } else {
+            prevTab.IsSeparatorVisible = true;
+          }
+        }
+      }
+      // handle code here. example:
+      //if ((bool)e.NewValue == true)
+      //  ((Rectangle)d).Fill = Brushes.Yellow;
+      //else
+      //  ((Rectangle)d).Fill = Brushes.Black;
+    }
+
     public static T FindParent<T>(DependencyObject child) where T : DependencyObject {
       //get parent item
       DependencyObject parentObject = VisualTreeHelper.GetParent(child);
@@ -124,14 +201,26 @@ namespace ShellControls {
     public override void OnApplyTemplate() {
       base.OnApplyTemplate();
       var tabControl = this.Parent as TabControl;
-      //if (tabControl != null) {
-      //  //tabControl.SelectionChanged += (sender, args) => {
-      //    if (this.IsSelectedTab) {
-      //      var explorerBrowser = this.Content as ExplorerControl;
-      //      explorerBrowser?.InitializeShellBrowser();
-      //    }
-      //  //};
-      //}
+      if (tabControl != null) {
+        if (this.IsSelected) {
+          this.IsSeparatorVisible = false;
+        }
+
+        var index = tabControl.Items.IndexOf(this);
+        if (index == -1) {
+          return;
+        }
+
+        if (index > 0) {
+          if (tabControl.Items[index - 1] is ShellTabItem prevTab) {
+            if (this.IsSelected) {
+              prevTab.IsSeparatorVisible = false;
+            } else {
+              prevTab.IsSeparatorVisible = true;
+            }
+          }
+        }
+      }
 
       var closeButton = this.GetPart<WPFUI.Controls.Button>("PART_TabCloseButton");
       if (closeButton != null) {

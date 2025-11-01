@@ -27,5 +27,7 @@ namespace BExplorer.Shell.Interop
         public static Guid SFObject { get; } = new Guid("3981e224-f559-11d3-8e3a-00c04f6837d5");
         public static Guid SFUIObject { get; } = new Guid("3981e225-f559-11d3-8e3a-00c04f6837d5");
         public static Guid SFAssocHandlers { get; } = new Guid("b8ab0b9c-c2ec-4f7a-918d-314900e6280a");
+
+        public static Guid SThumbnailhandler { get; } = new Guid(0x7B2E650A, 0x8E20, 0x4F4A, 0xB0, 0x9E, 0x65, 0x97, 0xAF, 0xC7, 0x2F, 0xB0);
     }
 }

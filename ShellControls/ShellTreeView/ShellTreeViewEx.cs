@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,7 @@ using BExplorer.Shell.Interop;
 using Settings;
 using ShellControls.ShellListView;
 using ShellLibrary.Interop;
+using Windows.UI.ViewManagement;
 using DataObject = BExplorer.Shell.DataObject;
 
 namespace ShellControls.ShellTreeView {
@@ -21,11 +23,16 @@ namespace ShellControls.ShellTreeView {
 
   public partial class ShellTreeViewEx : UserControl {
 
+    /// <summary>Do you want to show hidden items/nodes in the list</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+
     #region Public Members
 
     /// <summary>Do you want to show hidden items/nodes in the list</summary>
     public bool IsShowHiddenItems { get; set; }
 
+    /// <summary>The <see cref="ShellView">List</see> that this is paired with</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     /// <summary>The <see cref="ShellView">List</see> that this is paired with</summary>
     public ShellView ShellListView {
       private get { return this._ShellListView; }
@@ -36,6 +43,7 @@ namespace ShellControls.ShellTreeView {
       }
     }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public System.Windows.Controls.Primitives.ScrollBar VScrollBar {
       get {
         return this._VScrollBar;
@@ -90,7 +98,7 @@ namespace ShellControls.ShellTreeView {
       this.childsQueue.Clear();
       this.UpdatedImages.Clear();
       this.CheckedFroChilds.Clear();
-      var favoritesItem = Utilities.WindowsVersion == WindowsVersions.Windows10
+      var favoritesItem = Utilities.WindowsVersion == WindowsVersions.Windows10 || Utilities.WindowsVersion == WindowsVersions.Windows11
         ? FileSystemListItem.ToFileSystemItem(IntPtr.Zero, "shell:::{679f85cb-0220-4080-b29b-5540cc05aab6}")
         : FileSystemListItem.ToFileSystemItem(IntPtr.Zero, ((ShellItem)KnownFolders.Links).Pidl);
       var favoritesRoot = new TreeNode(favoritesItem.DisplayName);
@@ -100,6 +108,18 @@ namespace ShellControls.ShellTreeView {
 
       if (favoritesItem.Count() > 0) {
         favoritesRoot.Nodes.Add(this._EmptyItemString);
+      }
+
+      TreeNode oneDriveRoot = null;
+      if (Utilities.WindowsVersion == WindowsVersions.Windows11) {
+        var oneDriveItem = FileSystemListItem.ToFileSystemItem(IntPtr.Zero, ((ShellItem)KnownFolders.OneDrive).Pidl);
+        oneDriveRoot = new TreeNode(oneDriveItem.DisplayName);
+        oneDriveRoot.Tag = FileSystemListItem.ToFileSystemItem(IntPtr.Zero, ((ShellItem)KnownFolders.OneDrive).Pidl);
+        oneDriveRoot.ImageIndex = oneDriveItem.GetSystemImageListIndex(oneDriveItem.PIDL, ShellIconType.SmallIcon, ShellIconFlags.OpenIcon);
+        oneDriveRoot.SelectedImageIndex = oneDriveRoot.ImageIndex;
+        if (oneDriveItem.HasSubFolders) {
+          oneDriveRoot.Nodes.Add(this._EmptyItemString);
+        }
       }
 
       var librariesItem = FileSystemListItem.ToFileSystemItem(IntPtr.Zero, ((ShellItem)KnownFolders.Libraries).Pidl);
@@ -129,6 +149,10 @@ namespace ShellControls.ShellTreeView {
 
       this.ShellTreeView.Nodes.Add(favoritesRoot);
       favoritesRoot.Expand();
+
+      if (oneDriveRoot != null) {
+        this.ShellTreeView.Nodes.AddRange(new[] { new TreeNode(), oneDriveRoot });
+      }
 
       this.ShellTreeView.Nodes.AddRange(new[] { new TreeNode(), librariesRoot, new TreeNode(), computerRoot, new TreeNode(), networkRoot });
 
@@ -386,16 +410,22 @@ namespace ShellControls.ShellTreeView {
         this.ShellListView.IsFocusAllowed = false;
       }
 
-      this.ShellTreeView.Focus();
-    }
-
-    private void ShellListView_MouseMove(object sender, MouseEventArgs e) {
-      if (!this.ShellTreeView.Focused) {
+      if (!this.ShellListView.PreventOtherFocus) {
         this.ShellTreeView.Focus();
       }
     }
 
+    private void ShellListView_MouseMove(object sender, MouseEventArgs e) {
+      //if (!this.ShellTreeView.Focused) {
+      //  this.ShellTreeView.Focus();
+      //}
+    }
+
     private void ShellTreeView_MouseDown(object sender, MouseEventArgs e) {
+      System.Windows.Input.MouseButtonEventArgs args = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left) {
+        RoutedEvent = System.Windows.UIElement.PreviewMouseDownEvent
+      };
+      System.Windows.Application.Current.MainWindow.RaiseEvent(args);
       this.isFromTreeview = true;
       this.NodeClick?.Invoke(this, new TreeNodeMouseClickEventArgs(this.ShellTreeView.GetNodeAt(e.X, e.Y), e.Button, e.Clicks, e.X, e.Y));
     }
@@ -440,8 +470,13 @@ namespace ShellControls.ShellTreeView {
     private void LoadTreeImages() {
       // return;
       while (true) {
-        this._ResetEvent.WaitOne();
-        Thread.Sleep(1);
+        //this._ResetEvent.WaitOne();
+        if (this.imagesQueue.Count() == 0) {
+          Thread.Sleep(1);
+          Application.DoEvents();
+          continue;
+        }
+
         //Application.DoEvents();
         var handle = this.imagesQueue.Dequeue();
         TreeNode node = null;
@@ -513,6 +548,11 @@ namespace ShellControls.ShellTreeView {
     private void LoadChilds() {
       while (true) {
         // this._ResetEvent.WaitOne();
+        if (this.childsQueue.Count() == 0) {
+          Thread.Sleep(1);
+          Application.DoEvents();
+          continue;
+        }
         var handle = this.childsQueue.Dequeue();
         TreeNode node = null;
         IntPtr treeHandle = IntPtr.Zero;
@@ -702,6 +742,19 @@ namespace ShellControls.ShellTreeView {
 
     private void ShellTreeView_DrawNode(object sender, DrawTreeNodeEventArgs e) {
       e.DrawDefault = !string.IsNullOrEmpty(e.Node.Text);
+
+      if (string.IsNullOrEmpty(e.Node.Text)) {
+        var uiSettings = new UISettings();
+        var accentColor = uiSettings.GetColorValue(UIColorType.AccentLight2);
+        var pen = new Pen(Color.FromArgb(65, accentColor.R, accentColor.G, accentColor.B));
+        e.Graphics.DrawLine(pen, e.Bounds.X + 10, e.Bounds.Y + (e.Bounds.Height - 1) / 2, e.Bounds.X + e.Bounds.Width - 20, e.Bounds.Y + (e.Bounds.Height - 1) / 2);
+        pen.Dispose();
+      }
+
+      //if (e.Node.IsSelected) {
+      //  e.Graphics.DrawRoundedRectangle(Pens.Red, e.Bounds, 4);
+      //}
+
       try {
         if (e.Node.Tag != null) {
           var item = e.Node.Tag as IListItemEx;
@@ -948,9 +1001,11 @@ namespace ShellControls.ShellTreeView {
       } else if (e.KeyCode == Keys.F5) {
         this.RefreshContents();
       } else if (e.KeyCode == Keys.Escape) {
-        var item = new TVITEMW() { mask = TVIF.TVIF_STATE, stateMask = TVIS.TVIS_CUT, state = 0, hItem = this.cuttedNode.Handle };
-        User32.SendMessage(this.ShellTreeView.Handle, MSG.TVM_SETITEMW, 0, ref item);
-        Clipboard.Clear();
+        if (this.cuttedNode != null) {
+          var item = new TVITEMW() { mask = TVIF.TVIF_STATE, stateMask = TVIS.TVIS_CUT, state = 0, hItem = this.cuttedNode.Handle };
+          User32.SendMessage(this.ShellTreeView.Handle, MSG.TVM_SETITEMW, 0, ref item);
+          Clipboard.Clear();
+        }
       }
     }
 

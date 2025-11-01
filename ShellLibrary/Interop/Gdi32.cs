@@ -152,6 +152,29 @@ namespace BExplorer.Shell.Interop {
       height = dibsection.dsBm.bmHeight;
     }
 
+      public static Bitmap UnpremultiplyAlpha(Bitmap bmp) {
+        Bitmap newBmp = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
+
+        for (int y = 0; y < bmp.Height; y++) {
+          for (int x = 0; x < bmp.Width; x++) {
+            Color premultiplied = bmp.GetPixel(x, y);
+            byte a = premultiplied.A;
+
+            if (a == 0) {
+              newBmp.SetPixel(x, y, Color.FromArgb(0, 0, 0, 0));
+            } else {
+              byte r = (byte)(premultiplied.R * 255 / a);
+              byte g = (byte)(premultiplied.G * 255 / a);
+              byte b = (byte)(premultiplied.B * 255 / a);
+              newBmp.SetPixel(x, y, Color.FromArgb(a, r, g, b));
+            }
+          }
+        }
+
+        return newBmp;
+      }
+
+
     public static void ConvertPixelByPixel(IntPtr ipd, out int width, out int height) {
       // get the info about the HBITMAP inside the IPictureDisp
       DIBSECTION dibsection = new DIBSECTION();
@@ -176,6 +199,14 @@ namespace BExplorer.Shell.Interop {
             }
         }
       }
+    }
+
+    public static void ConvertPixelByPixelGetDim(IntPtr ipd, out int width, out int height) {
+      // get the info about the HBITMAP inside the IPictureDisp
+      DIBSECTION dibsection = new DIBSECTION();
+      var res = GetObjectDIBSection(ipd, Marshal.SizeOf(dibsection), ref dibsection);
+      width = dibsection.dsBm.bmWidth;
+      height = dibsection.dsBm.bmHeight;
     }
 
     [DllImport("user32.dll", EntryPoint = "GetDC", CharSet = CharSet.Auto)]
@@ -255,9 +286,11 @@ namespace BExplorer.Shell.Interop {
           gp.AddArc(r.X + r.Width - d, r.Y, d, d, 270, 90);
           gp.AddArc(r.X + r.Width - d, r.Y + r.Height - d, d, d, 0, 90);
           gp.AddArc(r.X, r.Y + r.Height - d, d, d, 90, 90);
-          gp.AddLine(r.X, r.Y + r.Height - d, r.X, r.Y + d / 2);
+          gp.AddLine(r.X, r.Y + r.Height - d, r.X, r.Y + (d / 2));
 
-          g.FillPath(backgroundColor, gp);
+          if (backgroundColor != Brushes.Transparent) {
+            g.FillPath(backgroundColor, gp);
+          }
           g.DrawPath(borderColor, gp);
           borderColor.Dispose();
           backgroundColor.Dispose();
@@ -296,6 +329,55 @@ namespace BExplorer.Shell.Interop {
           bmp.Dispose();
           return alpha;
         }
+
+        bmp.UnlockBits(bmpData);
+        return bmp;
+      } catch {
+        return null;
+      }
+    }
+    public static IntPtr RenderHBitmap(IntPtr hBitmap) {
+      try {
+        Bitmap bmp = Image.FromHbitmap(hBitmap);
+        if (Image.GetPixelFormatSize(bmp.PixelFormat) < 32) {
+          bmp.Dispose();
+          return hBitmap;
+        }
+        var res = IntPtr.Zero;
+        Rectangle bmBounds = new Rectangle(0, 0, bmp.Width, bmp.Height);
+        var bmpData = bmp.LockBits(bmBounds, ImageLockMode.ReadOnly, bmp.PixelFormat);
+        if (IsAlphaBitmap(bmpData)) {
+          var alpha = GetAlphaBitmapFromBitmapData(bmpData);
+          bmp.UnlockBits(bmpData);
+          bmp.Dispose();
+          res = alpha.GetHbitmap(Color.Transparent);
+          alpha.Dispose();
+          DeleteObject(hBitmap);
+          return res;
+        }
+
+        bmp.UnlockBits(bmpData);
+        bmp.Dispose();
+        return hBitmap;
+      } catch {
+        return IntPtr.Zero;
+      }
+    }
+    public static Bitmap GetBitmapFromHBitmapWithoutAlpha(IntPtr hBitmap) {
+      try {
+        Bitmap bmp = Image.FromHbitmap(hBitmap);
+        if (Image.GetPixelFormatSize(bmp.PixelFormat) < 32) {
+          return bmp;
+        }
+
+        Rectangle bmBounds = new Rectangle(0, 0, bmp.Width, bmp.Height);
+        var bmpData = bmp.LockBits(bmBounds, ImageLockMode.ReadOnly, bmp.PixelFormat);
+        //if (IsAlphaBitmap(bmpData)) {
+        //  var alpha = GetAlphaBitmapFromBitmapData(bmpData);
+        //  bmp.UnlockBits(bmpData);
+        //  bmp.Dispose();
+        //  return alpha;
+        //}
 
         bmp.UnlockBits(bmpData);
         return bmp;

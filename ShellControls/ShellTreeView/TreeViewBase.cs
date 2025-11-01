@@ -8,6 +8,8 @@ using System.Windows.Forms;
 using BExplorer.Shell.Interop;
 using Settings;
 using Timer = System.Windows.Forms.Timer;
+using System.ComponentModel;
+using Application = System.Windows.Forms.Application;
 
 namespace ShellControls.ShellTreeView {
   public class TreeViewBase : TreeView {
@@ -23,6 +25,7 @@ namespace ShellControls.ShellTreeView {
     public const int TVS_EX_FADEINOUTEXPANDOS = 0x0040;
     public int RightOffset = 0;
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public System.Windows.Controls.Primitives.ScrollBar VScrollBar {
       get {
         return this._VScrollBar;
@@ -72,11 +75,12 @@ namespace ShellControls.ShellTreeView {
     private Timer _ScrollBarTimer = new Timer();
     private Boolean _PreventValueChangeEvent = false;
     private Boolean _IsKillThreads = false;
+    private Boolean ShouldExecuteScrollUpdate = false;
     #endregion
 
     #region Initializer
     public TreeViewBase() {
-      //SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.EnableNotifyMessage | ControlStyles.AllPaintingInWmPaint, true);
+      //this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.EnableNotifyMessage | ControlStyles.AllPaintingInWmPaint, true);
       //ResizeRedraw = true;
       this.ItemHeight = 32;
       this.Font = new Font(this.Font.FontFamily, 8);
@@ -86,6 +90,7 @@ namespace ShellControls.ShellTreeView {
         this.Refresh();
         //var handle = this.Handle;
         this._ResetEvent.Set();
+        this.ShouldExecuteScrollUpdate = true;
         if (!this._ScrollBarTimer.Enabled) {
           this._ScrollBarTimer.Start();
         }
@@ -99,6 +104,7 @@ namespace ShellControls.ShellTreeView {
 
     private void OnAfterCollapse(object sender, TreeViewEventArgs e) {
       this._ResetEvent.Set();
+      this.ShouldExecuteScrollUpdate = true;
       if (!this._ScrollBarTimer.Enabled) {
         this._ScrollBarTimer.Start();
       }
@@ -110,11 +116,13 @@ namespace ShellControls.ShellTreeView {
 
     private void ScrollBarTimerOnTick(object? sender, EventArgs e) {
       this._ResetEvent.Reset();
+      this.ShouldExecuteScrollUpdate = false;
       this._ScrollBarTimer.Stop();
     }
 
     public void RequestScrollBarUpdate() {
       this._ResetEvent.Set();
+      this.ShouldExecuteScrollUpdate = true;
       if (!this._ScrollBarTimer.Enabled) {
         this._ScrollBarTimer.Start();
       }
@@ -202,13 +210,20 @@ namespace ShellControls.ShellTreeView {
       try {
         this._ScrollThread = new Thread(() => {
           while (!this._IsKillThreads) {
-            Thread.Sleep(100);
-            this._ResetEvent.WaitOne();
+            
+            //this._ResetEvent.WaitOne();
+            if (!this.ShouldExecuteScrollUpdate) {
+              Thread.Sleep(1);
+              Application.DoEvents();
+              continue;
+            }
+            Thread.Sleep(10);
+            Application.DoEvents();
             this.BeginInvoke((Action)(() => { this.UpdateScrollbarInfo(); }));
           }
         });
         this._ScrollThread.Priority = ThreadPriority.Lowest;
-        this._ScrollThread.IsBackground = true;
+        //this._ScrollThread.IsBackground = true;
         this._ScrollThread.Start();
       } catch (ThreadInterruptedException ex) {
         

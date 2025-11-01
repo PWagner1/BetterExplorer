@@ -56,12 +56,8 @@
           </StackPanel.Resources>
           <shellControls:ToolbarGroup Margin="6,0,0,0">
             <StackPanel Orientation="Horizontal">
-              <betterExplorerControls:FontIconButton BaseIconGlyph="&#xF037;" OverlayIconGlyph="&#xF038;" Header="New" Margin="-6,7,7,7" >
-                <betterExplorerControls:FontIconButton.Flyout>
-                  <Grid Height="200" Width="200">
-                    <Button>Test</Button>
-                  </Grid>
-                </betterExplorerControls:FontIconButton.Flyout>
+              <betterExplorerControls:FontIconButton BaseIconGlyph="&#xF037;" OverlayIconGlyph="&#xF038;" Header="New" Margin="-6,7,7,7" Click="btnNew_OnClick" >
+                
               </betterExplorerControls:FontIconButton>
             </StackPanel>
           </shellControls:ToolbarGroup>

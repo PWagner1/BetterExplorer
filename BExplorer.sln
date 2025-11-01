@@ -1380,7 +1380,6 @@ Global
 		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|Any CPU.ActiveCfg = ExeBuild
 		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|Any CPU.Build.0 = ExeBuild
 		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|Mixed Platforms.ActiveCfg = ExeBuild
-		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|Mixed Platforms.Build.0 = ExeBuild
 		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|Win32.ActiveCfg = ExeBuild
 		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|Win32.Build.0 = ExeBuild
 		{A563DBE3-9C87-474D-9FA8-D7483E5FA8E7}.Debug|x64.ActiveCfg = ExeBuild
@@ -1592,8 +1591,8 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		VisualSVNWorkingCopyRoot = .
 		SolutionGuid = {4801FBB8-3BD6-441D-B354-3299AD2610E5}
+		VisualSVNWorkingCopyRoot = .
 	EndGlobalSection
 	GlobalSection(NDepend) = preSolution
 		Project = ".\BFExplorer.ndproj"

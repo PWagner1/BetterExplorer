@@ -38,6 +38,7 @@ namespace ConsoleControl {
 
     private bool _IsCodepageSet = false;
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public ShellView ShellListView { get; set; }
 
     /// <summary>
@@ -78,8 +79,10 @@ namespace ConsoleControl {
     /// <summary> Gets or sets a value indicating whether to show diagnostics. </summary>
     /// <value> <c>true</c> if show diagnostics; otherwise, <c>false</c>. </value>
     [Category("Console Control"), Description("Show diagnostic information, such as exceptions.")]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public bool ShowDiagnostics { get; set; }
 
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public String LastLinePath { get; set; }
 
 

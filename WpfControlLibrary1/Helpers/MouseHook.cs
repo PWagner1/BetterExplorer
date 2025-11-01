@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Windows;
 
 namespace BetterExplorerControls.Helpers {
   public class LLMouseHookArgs : EventArgs {
@@ -18,22 +20,26 @@ namespace BetterExplorerControls.Helpers {
     private static IntPtr SetHook(LowLevelMouseProc proc) {
       using (Process curProcess = Process.GetCurrentProcess())
       using (ProcessModule curModule = curProcess.MainModule) {
-        return SetWindowsHookEx(WH_MOUSE_LL, proc,
-          GetModuleHandle(curModule.ModuleName), 0);
+        var res = SetWindowsHookEx(WH_MOUSE, proc,
+          IntPtr.Zero, (uint)AppDomain.GetCurrentThreadId());
+        return res;
       }
     }
 
     private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
+      var res = CallNextHookEx(_hookID, nCode, wParam, lParam);
       if (nCode >= 0 && (MouseMessages.WM_LBUTTONDOWN == (MouseMessages)wParam || MouseMessages.WM_RBUTTONDOWN == (MouseMessages)wParam)) {
         MSLLHOOKSTRUCT hookStruct = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
         MouseAction(null, new LLMouseHookArgs() { pt = hookStruct.pt });
       }
-      return CallNextHookEx(_hookID, nCode, wParam, lParam);
+      return res;
     }
 
     private const int WH_MOUSE_LL = 14;
+
+    private const int WH_MOUSE = 7;
 
     private enum MouseMessages {
       WM_LBUTTONDOWN = 0x0201,
@@ -71,5 +77,8 @@ namespace BetterExplorerControls.Helpers {
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
   }
 }

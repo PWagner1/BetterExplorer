@@ -110,6 +110,7 @@ namespace BetterExplorer {
     private void btnSet_Click(object sender, EventArgs e) {
       var itemIndex = _ShellView.GetFirstSelectedItemIndex();
       this._ShellView.CurrentRefreshedItemIndex = itemIndex;
+      this.Close();
       if (this._IsLibrary) {
         //this._ShellView.IsLibraryInModify = true;
         var lib = _ShellView.GetFirstSelectedItem() != null ?
@@ -125,7 +126,7 @@ namespace BetterExplorer {
         this._ShellView.SetFolderIcon(this._ShellView.GetFirstSelectedItem().ParsingName, tbLibrary.Text, (int)lvIcons.SelectedItems[0].Tag);
       }
 
-      this.Close();
+      
     }
 
     private BackgroundWorker bw = new BackgroundWorker();

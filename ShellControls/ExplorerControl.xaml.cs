@@ -46,52 +46,45 @@ namespace ShellControls {
   /// </summary>
   public partial class ExplorerControl : UserControl {
     private static readonly List<string> Images = new List<string>(new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".wmf" });
+
     private static readonly List<string> Movies = new List<string>(new[] { ".avi", ".mp4", ".ts", ".wmv", ".mkv", ".mpeg", ".mov" });
+
     private static readonly List<string> Subtitles = new List<string>(new[] { ".sub", ".srt" });
+
     public event EventHandler OnBackClick;
+
     public event EventHandler OnForwardClick;
+
     public event EventHandler<TabUpdateEventArgs> OnUpdateTabInfo;
+
     public NavigationLog Log { get; set; }
+
     private ClipboardMonitor cbm = new ClipboardMonitor();
+
     public Boolean AllowNavigation { get; set; }
+
     public ShellView ShellViewEx;
+
     private ShellTreeViewEx _ShellTreeView;
+
     private IListItemEx _Folder;
+
     private Boolean _IsLoaded = false;
+
     private Boolean _IsLogNavigation = false;
+
     private Boolean _IsFromTabCreation = false;
+
     private Boolean _IsInitialyInitialized = false;
+
     private static Boolean IsShowHidden;
+
     private static Boolean IsShowExtensions;
+
     public static List<LVItemColor>? ColorCodes;
+
     public ExplorerControl() {
       InitializeComponent();
-    }
-
-    private void ComponentDispatcherOnThreadFilterMessage(ref System.Windows.Interop.MSG msg, ref Boolean handled) {
-      if (msg.message == 0x100) {
-        handled = true;
-        Keys keyData = ((Keys)((int)((long)msg.wParam))) | System.Windows.Forms.Control.ModifierKeys;
-        User32.SetForegroundWindow(this.ShellViewEx.Handle);
-        User32.keybd_event((byte)keyData, 0x42, 0x1, UIntPtr.Zero);
-        User32.keybd_event((byte)keyData, 0x42, 0x1 | 0x2, UIntPtr.Zero);
-        System.Windows.Forms.Application.DoEvents();
-      } else if (msg.message == 0x101) {
-
-      }
-    }
-
-    private void ComponentDispatcher_ThreadPreprocessMessage(ref System.Windows.Interop.MSG msg, ref Boolean handled) {
-      if (msg.message == 0x100) {
-        handled = true;
-        Keys keyData = ((Keys)((int)((long)msg.wParam))) | System.Windows.Forms.Control.ModifierKeys;
-        User32.SetForegroundWindow(this.ShellViewEx.Handle);
-        User32.keybd_event((byte)keyData, 0x42, 0x1, UIntPtr.Zero);
-        User32.keybd_event((byte)keyData, 0x42, 0x1 | 0x2, UIntPtr.Zero);
-        System.Windows.Forms.Application.DoEvents();
-      } else if (msg.message == 0x101) {
-
-      }
     }
 
     private void ShellViewExOnBeginItemLabelEdit(Object? sender, RenameEventArgs e) {
@@ -107,6 +100,7 @@ namespace ShellControls {
 
       this.pnlRename.IsOpen = true;
       this.txtRename.Focus();
+      this.ShellViewEx.Focus(false, true);
     }
 
     private void ShellViewExOnEndItemLabelEdit(Object? sender, Boolean e) {
@@ -116,9 +110,10 @@ namespace ShellControls {
           this.ShellViewEx.RenameShellItem(item.ComInterface, this.txtRename.Text, item.DisplayName != Path.GetFileName(item.ParsingName) && !item.IsFolder, item.Extension);
         }
       }
-      this.pnlRename.IsOpen = false;
-    }
 
+      this.pnlRename.IsOpen = false;
+      this.ShellViewEx.PreventOtherFocus = false;
+    }
 
     private void ShellViewExOnViewStyleChanged(object? sender, ViewChangedEventArgs e) {
       this.btnViewDetails.IsChecked = e.CurrentView == ShellViewStyle.Details;
@@ -181,7 +176,7 @@ namespace ShellControls {
     }
 
     private void LoadColorCodesFromFile() {
-      if (ColorCodes == null) {
+      if (ExplorerControl.ColorCodes == null) {
         Task.Run(() => {
           var itemColorSettingsLocation =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -190,29 +185,29 @@ namespace ShellControls {
           if (File.Exists(itemColorSettingsLocation)) {
             var docs = XDocument.Load(itemColorSettingsLocation);
 
-            ColorCodes = docs.Root?.Elements("ItemColorRow")?
-              .Select(
-                element =>
-                  new LVItemColor(
-                    element.Elements().ToArray()[0].Value,
-                    Color.FromArgb(
-                      BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[0],
-                      BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[1],
-                      BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[2],
-                      BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[3])))
+            ExplorerControl.ColorCodes = docs.Root?.Elements("ItemColorRow")?
+              .Select(element =>
+                new LVItemColor(
+                  element.Elements().ToArray()[0].Value,
+                  Color.FromArgb(
+                    BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[0],
+                    BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[1],
+                    BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[2],
+                    BitConverter.GetBytes(Convert.ToInt32(element.Elements().ToArray()[1].Value))[3])))
               .ToList();
 
-            ColorCodes.ForEach(e => this.ShellViewEx.LVItemsColorCodes.Add(e));
+            ExplorerControl.ColorCodes.ForEach(e => this.ShellViewEx.LVItemsColorCodes.Add(e));
 
           }
         });
       } else {
         this.ShellViewEx.LVItemsColorCodes.Clear();
-        ColorCodes.ForEach(e => this.ShellViewEx.LVItemsColorCodes.Add(e));
+        ExplorerControl.ColorCodes.ForEach(e => this.ShellViewEx.LVItemsColorCodes.Add(e));
       }
     }
 
     private Boolean _PreventSBValueChange = false;
+
     private void ShellViewExOnOnLVScroll(object? sender, ScrollEventArgs e) {
 
       //this.Dispatcher.BeginInvoke(DispatcherPriority.Normal, (Action)(
@@ -243,11 +238,13 @@ namespace ShellControls {
     public ExplorerControl(IListItemEx folder, Boolean isFromTab = false) : this(isFromTab) {
       this._Folder = folder;
     }
+
     public ExplorerControl(String folder, Boolean isFromTab = false) : this(isFromTab) {
       var startupLoc = new FileSystemListItem();
       startupLoc.Initialize(this.ShellViewEx?.LVHandle ?? IntPtr.Zero, folder.ToShellParsingName(), 0);
       this._Folder = startupLoc;
     }
+
     private void ShellViewExOnNavigating(object? sender, NavigatingEventArgs e) {
       this.Dispatcher.BeginInvoke(DispatcherPriority.Background, (ThreadStart)(() => {
         this.txtSearch.WatermarkText = "Search " + e.Folder.DisplayName;
@@ -279,6 +276,7 @@ namespace ShellControls {
         } else {
           this.Log.AddHistoryEntry(e.Folder);
         }
+
         this.btnBack.IsEnabled = this.Log.CanNavigateBackwards;
         this.btnForward.IsEnabled = this.Log.CanNavigateForwards;
         this.btnUp.IsEnabled = this.ShellViewEx.CanNavigateParent;
@@ -316,14 +314,16 @@ namespace ShellControls {
         //}
       }));
     }
+
     private void OnBreadcrumbbarNavigate(IListItemEx destination) {
       //this.IsNeedEnsureVisible = true;
       this.ShellViewEx.Navigate_Full(destination, true, true);
       //this.ShellViewWEx.Navigate(destination);
     }
+
     private void ExplorerControl_OnLoaded(object sender, RoutedEventArgs e) {
-      
-      
+
+
 
       if (this.AllowNavigation) {
         this.Dispatcher.BeginInvoke(DispatcherPriority.Background, (ThreadStart)(() => {
@@ -344,18 +344,19 @@ namespace ShellControls {
 
       var gv = (GridView)this.llvHeader.View;
       gv.Columns.CollectionChanged += gridView_CollectionChanged;
-      
+
 
       if (!this._IsLoaded) {
         this._IsLoaded = true;
         this.OnUpdateTabInfo?.Invoke(this, new TabUpdateEventArgs(this._Folder, false));
-        
-        
+
+
         if (this._IsFromTabCreation) {
           if (this.pnlShellBrowser.Visibility == Visibility.Hidden) {
             this.pnlShellBrowser.Visibility = Visibility.Visible;
           }
         }
+
         var parentWindow = Window.GetWindow(this);
         parentWindow.SizeChanged += (o, args) => {
           if (this.pnlShellBrowser.Visibility == Visibility.Hidden) {
@@ -370,6 +371,7 @@ namespace ShellControls {
         if (e.OldStartingIndex == 0 || e.NewStartingIndex == 0) {
           return;
         }
+
         var gv = (GridView)this.llvHeader.View;
         var gvc = gv.Columns;
         this.ShellViewEx.RearangeColumns(gvc.OfType<ListViewColumnHeader>());
@@ -390,6 +392,7 @@ namespace ShellControls {
         this.ShellViewEx.ViewStyleChanged += ShellViewExOnViewStyleChanged;
         this.ShellViewEx.BeginItemLabelEdit += ShellViewExOnBeginItemLabelEdit;
         this.ShellViewEx.EndItemLabelEdit += ShellViewExOnEndItemLabelEdit;
+        this.ShellViewEx.ItemUpdated += this.ShellViewEx_ItemUpdated;
         this.ShellViewHost.Child = this.ShellViewEx;
         this._ShellTreeView.ShellListView = this.ShellViewEx;
         this.ShellTreeViewHost.Child = this._ShellTreeView;
@@ -402,6 +405,7 @@ namespace ShellControls {
 
         this._IsInitialyInitialized = true;
       }
+
       var statef = new BExplorer.Shell.Interop.Shell32.SHELLSTATE();
       BExplorer.Shell.Interop.Shell32.SHGetSetSettings(ref statef, BExplorer.Shell.Interop.Shell32.SSF.SSF_SHOWALLOBJECTS | BExplorer.Shell.Interop.Shell32.SSF.SSF_SHOWEXTENSIONS, false);
       this.tbHiddenFiles.IsChecked = statef.fShowAllObjects == 1;
@@ -410,6 +414,16 @@ namespace ShellControls {
       this.tbFileExtensions.IsChecked = statef.fShowExtensions == 1;
       this.ShellViewEx.IsFileExtensionShown = statef.fShowExtensions == 1;
       ExplorerControl.IsShowExtensions = this.ShellViewEx.IsFileExtensionShown;
+    }
+
+    private void ShellViewEx_ItemUpdated(Object? sender, ItemUpdatedEventArgs e) {
+      if (this.ShellViewEx.Items.Count == 1) {
+        this.txtTotalCount.Text = "1 item";
+      } else if (this.ShellViewEx.Items.Count > 1) {
+        this.txtTotalCount.Text = $"{this.ShellViewEx.Items.Count} items";
+      } else {
+        this.txtTotalCount.Text = String.Empty;
+      }
     }
 
     private void btnBack_Click(object sender, RoutedEventArgs e) {
@@ -514,7 +528,7 @@ namespace ShellControls {
       //var menuItems = new List<Win32ContextMenuItem>();
       var sortbyItem = new Win32ContextMenuItem(contextMenu.MenuItems);
       sortbyItem.Label = "Sort By";
-
+      //sortbyItem.SubItems = new List<Win32ContextMenuItem>();
       foreach (var column in this.lvHeader.Columns.OfType<ListViewColumnHeader>()) {
         var header = (column.Header as ShellListViewColumnHeader);
         var sortcolItem = new Win32ContextMenuItem(sortbyItem.SubItems);
@@ -532,6 +546,7 @@ namespace ShellControls {
       contextMenu.MenuItems.Add(sortbyItem);
       var groupbyItem = new Win32ContextMenuItem(contextMenu.MenuItems);
       groupbyItem.Label = "Group By";
+      //groupbyItem.SubItems = new List<Win32ContextMenuItem>();
       //var groupSubItems = new List<Win32ContextMenuItem>();
       foreach (var column in this.lvHeader.Columns.OfType<ListViewColumnHeader>()) {
         var header = (column.Header as ShellListViewColumnHeader);
@@ -545,6 +560,7 @@ namespace ShellControls {
         };
         groupbyItem.SubItems.Add(groupcolItem);
       }
+
       var groupcolNoneItem = new Win32ContextMenuItem(groupbyItem.SubItems);
       groupcolNoneItem.Label = "(None)";
       groupcolNoneItem.IsChecked = this.ShellViewEx.LastGroupCollumn == null || this.ShellViewEx.LastGroupCollumn.ID == String.Empty;
@@ -598,6 +614,7 @@ namespace ShellControls {
           User32.SendMessage(this.ShellViewEx.LVHandle, MSG.LVM_SetExtendedStyle, (Int32)ListViewExtendedStyles.LVS_EX_AUTOCHECKSELECT, 0);
           User32.SendMessage(this.ShellViewEx.LVHandle, MSG.LVM_SetExtendedStyle, (Int32)ListViewExtendedStyles.CheckBoxes, 0);
         }
+
         contextMenu.IsOpen = false;
       };
       contextMenu.MenuItems.Add(multiSelectItem);
@@ -697,6 +714,7 @@ namespace ShellControls {
           cvt.Save(newFilePath);
           this.ShellViewEx.UnvalidateDirectory();
         }
+
         cvt.Dispose();
       }
     }
@@ -751,11 +769,13 @@ namespace ShellControls {
       //User32.keybd_event(keyCode, 0x42, 0x1 | 0x2, UIntPtr.Zero);
       //System.Windows.Forms.Application.DoEvents();
     }
+
     private CustomPopupPlacement[] CustomPopupPlacementCallbackLocal(Size popupsize, Size targetsize, Point offset) {
       if (this.ShellViewEx._ItemForRename == -1) {
         this.pnlRename.IsOpen = false;
         return Array.Empty<CustomPopupPlacement>();
       }
+
       var lvi = default(LVITEMINDEX);
       lvi.iItem = this.ShellViewEx._ItemForRename;
       lvi.iGroup = this.ShellViewEx.GetGroupIndex(this.ShellViewEx._ItemForRename);
@@ -771,6 +791,7 @@ namespace ShellControls {
         labelBounds.Top = labelBounds.Top - 8;
         labelBounds.Bottom = labelBounds.Bottom - 8;
       }
+
       var labelBoundsReal = new User32.RECT() { Left = 2 };
       User32.SendMessage(this.ShellViewEx.LVHandle, MSG.LVM_GETITEMINDEXRECT, ref lvi, ref labelBoundsReal);
       if (this.ShellViewEx.IconSize == 16) {
@@ -806,6 +827,7 @@ namespace ShellControls {
           labelBoundsReal.Width = labelBoundsReal.Width + 2;
           this.txtRename.MaxWidth = itemBounds.Width - 20;
         }
+
         yPos = labelBoundsReal.Y - 2;
       }
 
@@ -823,12 +845,13 @@ namespace ShellControls {
       if (e.Key == Key.Escape) {
         this.ShellViewEx.EndLabelEdit(true);
       } else if (e.Key == Key.Enter) {
-          var item = this.ShellViewEx.Items[this.ShellViewEx._ItemForRename];
-          if (!item.DisplayName.Equals(this.txtRename.Text, StringComparison.InvariantCultureIgnoreCase)) {
-            this.ShellViewEx.RenameShellItem(item.ComInterface, this.txtRename.Text, item.DisplayName != Path.GetFileName(item.ParsingName) && !item.IsFolder, item.Extension);
-          }
-          this.pnlRename.IsOpen = false;
-          this.ShellViewEx.EndLabelEdit();
+        var item = this.ShellViewEx.Items[this.ShellViewEx._ItemForRename];
+        if (!item.DisplayName.Equals(this.txtRename.Text, StringComparison.InvariantCultureIgnoreCase)) {
+          this.ShellViewEx.RenameShellItem(item.ComInterface, this.txtRename.Text, item.DisplayName != Path.GetFileName(item.ParsingName) && !item.IsFolder, item.Extension);
+        }
+
+        this.pnlRename.IsOpen = false;
+        this.ShellViewEx.EndLabelEdit();
       }
     }
 
@@ -849,6 +872,11 @@ namespace ShellControls {
 
     private void PnlRename_OnClosed(Object? sender, EventArgs e) {
       this.ShellViewEx.EndLabelEdit();
+    }
+
+    private void btnNew_OnClick(Object sender, RoutedEventArgs e) {
+      var cm = new ShellContextMenuEx(this.ShellViewEx.CurrentFolder);
+      cm.ShowShellNewContextMenu(sender as UIElement,  this.ShellViewEx, 0);
     }
   }
 }

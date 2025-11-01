@@ -273,7 +273,7 @@ namespace BExplorer.Shell.Interop {
       WTS_THUMBNAILID thumbId = new WTS_THUMBNAILID();
       Boolean result = false;
       try {
-        if (ThumbnailCache.GetThumbnail(this.shellItemNative, iconSize, WTS_FLAGS.WTS_FORCEEXTRACTION | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE, out bmp, cacheFlags, thumbId) != HResult.WTS_E_FAILEDEXTRACTION) {
+        if (ThumbnailCache.GetThumbnail(this.shellItemNative, iconSize, WTS_FLAGS.WTS_FORCEEXTRACTION | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE, out bmp, out cacheFlags, thumbId) != HResult.WTS_E_FAILEDEXTRACTION) {
           result = true;
         }
       } finally {
@@ -290,7 +290,7 @@ namespace BExplorer.Shell.Interop {
       WTS_THUMBNAILID thumbId = new WTS_THUMBNAILID();
       try {
         retrieved = false;
-        res = ThumbnailCache.GetThumbnail(this._Item.ComInterface, iconSize, isRefresh ? (WTS_FLAGS.WTS_FORCEEXTRACTION | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE) : (WTS_FLAGS.WTS_INCACHEONLY | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE), out bmp, flags, thumbId);
+        res = ThumbnailCache.GetThumbnail(this._Item.ComInterface, iconSize, isRefresh ? (WTS_FLAGS.WTS_FORCEEXTRACTION | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE) : (WTS_FLAGS.WTS_INCACHEONLY | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE), out bmp, out flags, thumbId);
         IntPtr hBitmap = IntPtr.Zero;
         if (bmp != null) {
           bmp.GetSharedBitmap(out hBitmap);

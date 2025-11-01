@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO.Ports;
 using System.Runtime.InteropServices;
 
 namespace BetterExplorerControls.Helpers {
@@ -27,7 +28,8 @@ namespace BetterExplorerControls.Helpers {
       ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
       ACCENT_ENABLE_BLURBEHIND = 3,
       ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
-      ACCENT_INVALID_STATE = 5
+      ACCENT_ENABLE_HOSTBACKDROP = 5, // RS5 1809
+      ACCENT_INVALID_STATE = 6
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -47,19 +49,19 @@ namespace BetterExplorerControls.Helpers {
       BlurBehind          = 3,
       AcrylicBlurBehind   = 4,
     }
-    public static void SetBlur(IntPtr hwnd, AccentFlagsType style = AccentFlagsType.Window, AccentState? state = null, uint gradientColor = 0x00FFFFFF) {
+    public static void SetBlur(IntPtr hwnd, AccentFlagsType style = AccentFlagsType.Window, AccentState? state = null, uint gradientColor = 0x00FFFFFF, uint opacity = 40) {
       var accent = new AccentPolicy();
       var accentStructSize = Marshal.SizeOf(accent);
       accent.AccentState = state ?? SelectAccentState();
 
-      if (style == AccentFlagsType.Window) {
-        accent.AccentFlags = 2;
-      } else {
-        accent.AccentFlags = 0x20 | 0x40 | 0x80 | 0x100;
-      }
+      //if (style == AccentFlagsType.Window) {
+        accent.AccentFlags = 8;
+      //} else {
+      //  accent.AccentFlags = 0x20 | 0x40 | 0x80 | 0x100;
+      //}
 
       //accent.GradientColor = 0x99FFFFFF;  // 60%の透明度が基本
-      accent.GradientColor = gradientColor;  // Tint Colorはここでは設定せず、Bindingで外部から変えられるようにXAML側のレイヤーとして定義
+      accent.GradientColor = (125 << 24) | gradientColor;  // Tint Colorはここでは設定せず、Bindingで外部から変えられるようにXAML側のレイヤーとして定義
 
       var accentPtr = Marshal.AllocHGlobal(accentStructSize);
       Marshal.StructureToPtr(accent, accentPtr, false);

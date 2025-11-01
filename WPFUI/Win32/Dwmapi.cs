@@ -24,6 +24,7 @@ namespace WPFUI.Win32 {
     /// </summary>
     [Flags]
     public enum DWMWINDOWATTRIBUTE : uint {
+      DWMWA_TRANSITIONS_FORCEDISABLED = 2,
       /// <summary>
       /// Enables content rendered in the non-client area to be visible on the frame drawn by DWM.
       /// </summary>

@@ -39,22 +39,6 @@ namespace ShellControls.ShellContextMenu {
       if (this.SelectedItems.Any()) {
         IntPtr[] pidls = this.SelectedItems.Select(s => s.ILPidl).ToArray();
         IListItemEx parent = shellView.CurrentFolder;
-
-        //for (int n = 0; n < this.SelectedItems.Length; ++n) {
-        //  pidls[n] = this.SelectedItems[n].ILPidl;
-
-        //  if (parent == null) {
-        //    if (this.SelectedItems[n].ParsingName.Equals(ShellItem.Desktop.ParsingName)) {
-        //      parent = FileSystemListItem.ToFileSystemItem(IntPtr.Zero, ShellItem.Desktop.Pidl);
-        //    } else {
-        //      parent = this.SelectedItems[n].Parent;
-        //    }
-        //  } else if (!this.SelectedItems[n].Parent.Equals(parent)) {
-        //    throw new Exception("All shell items must have the same parent");
-        //  }
-        //}
-
-
         parent.GetIShellFolder().GetUIObjectOf(this.ShellView.LVHandle, (uint)pidls.Length, pidls, typeof(IContextMenu).GUID, 0, out this._ResultIntPtr);
         this._ContextMenuComInterface = (IContextMenu)Marshal.GetTypedObjectForIUnknown(this._ResultIntPtr, typeof(IContextMenu));
         this._ContextMenuComInterface2 = (IContextMenu2)this._ContextMenuComInterface;
@@ -78,7 +62,7 @@ namespace ShellControls.ShellContextMenu {
     }
 
     public String[] _CommandsForRemove = new[] { "rename", "properties", "delete", "cut", "copy", "paste", "windows.modernshare", "view", "arrange",
-                                                  "groupby", "windows.share", "refresh" };
+                                                  "groupby", "windows.share", "refresh", "viewcustomwizard" };
     public async void ShowShellContextMenu(ShellView shellView, CMF additionalFlags) {
       //ShlWapi.SHSetThreadRef(this._ContextMenuComInterface3);
       this.ShellView = shellView;
@@ -99,7 +83,7 @@ namespace ShellControls.ShellContextMenu {
         }
       }
 
-      
+
       //var items = new List<Win32ContextMenuItem>();
       var cmControl = new AcrylicShellContextMenu();
       //var t = new Thread(() => {
@@ -112,7 +96,7 @@ namespace ShellControls.ShellContextMenu {
       cmControl.IsSimpleMenu = this._MenuMode == SVGIO.SVGIO_BACKGROUND;
 
       cmControl.Placement = PlacementMode.MousePoint;
-      
+
       if (this._MenuMode != SVGIO.SVGIO_BACKGROUND) {
         cmControl.BaseItems.Add(this.CreateBaseCommandButton("Cut", "\xF03D", "\xF03E", Icon.Empty, () => { this.ShellView.CutSelectedFiles(); cmControl.IsOpen = false; }));
         cmControl.BaseItems.Add(this.CreateBaseCommandButton("Copy", "\xF021", "\xF022", Icon.Empty, () => { this.ShellView.CopySelectedFiles(); cmControl.IsOpen = false; }));
@@ -136,11 +120,11 @@ namespace ShellControls.ShellContextMenu {
         GC.WaitForPendingFinalizers();
         GC.Collect();
       };
-      cmControl.IsOpen = true;
+      
       //var t = new Thread(async () => {
-        //System.Windows.Threading.Dispatcher.Run();
-        //Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, (ThreadStart)(async () => {
-          var res = await this.EnumMenuItems(hMenu, null);
+      //System.Windows.Threading.Dispatcher.Run();
+      //Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, (ThreadStart)(async () => {
+      var res = this.EnumMenuItems(hMenu, null);
       //}));
 
 
@@ -163,17 +147,83 @@ namespace ShellControls.ShellContextMenu {
         }
 
         if (win32ContextMenuDataItem.IsSubMenu) {
-          newItem.SubItems = win32ContextMenuDataItem.SubItems.Select(s => new Win32ContextMenuItem(this, newItem.SubItems)
-            { ID = s.ID, Label = s.Label, CommandString = s.CommandString, IconBase64 = s.IconBase64, Type = s.Type, Icon = s.Icon}).ToList();
+          newItem.SubItems = win32ContextMenuDataItem.SubItems.Select(s => new Win32ContextMenuItem(this, newItem.SubItems) {
+            ID = s.ID,
+            Label = s.Label,
+            CommandString = s.CommandString,
+            IconBase64 = s.IconBase64,
+            Type = s.Type,
+            Icon = s.Icon,
+            IsNewMenuItem = newItem.CommandString?.ToLowerInvariant() == "new",
+          }).ToList();
         }
 
         newItem.Type = win32ContextMenuDataItem.Type;
         cmControl.MenuItems.Add(newItem);
       }
+      cmControl.IsOpen = true;
       //}));
       //});
       //t.SetApartmentState(ApartmentState.STA);
       //t.Start();
+
+    }
+
+    public async void ShowShellNewContextMenu(UIElement element, ShellView shellView, CMF additionalFlags) {
+      this.ShellView = shellView;
+      Guid iise = typeof(IShellExtInit).GUID;
+      IntPtr iShellExtInitPtr;
+      if (Marshal.QueryInterface(this._ResultIntPtr, ref iise, out iShellExtInitPtr) == (int)HResult.S_OK) {
+        var iShellExtInit =
+          Marshal.GetTypedObjectForIUnknown(iShellExtInitPtr, typeof(IShellExtInit)) as IShellExtInit;
+
+        try {
+          iShellExtInit?.Initialize(this.ShellView.CurrentFolder.PIDL, null, 0);
+          if (iShellExtInit != null)
+            Marshal.ReleaseComObject(iShellExtInit);
+          Marshal.Release(iShellExtInitPtr);
+        } catch { }
+      }
+      var cmControl = new AcrylicShellContextMenu();
+
+      cmControl.IsSimpleMenu = true;
+
+      var hMenu = User32.CreatePopupMenu();
+      this._ContextMenuComInterface.QueryContextMenu(hMenu, 0, 1, int.MaxValue, CMF.EXPLORE | CMF.SYNCCASCADEMENU | CMF.CANRENAME | additionalFlags | ((Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift ? CMF.EXTENDEDVERBS : 0));
+      cmControl.OnMenuClosed += (sender, args) => {
+        User32.DestroyMenu(hMenu);
+        Marshal.FinalReleaseComObject(this._ContextMenuComInterface);
+        Marshal.FinalReleaseComObject(this._ContextMenuComInterface2);
+        Marshal.FinalReleaseComObject(this._ContextMenuComInterface3);
+        this._BitmapHandles.ForEach(e => {
+          Gdi32.DeleteObject(e);
+        });
+        this._BitmapHandles.Clear();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+      };
+
+      var res = this.EnumNewMenuItems(hMenu, null);
+
+      foreach (var win32ContextMenuDataItem in res) {
+        var newItem = new Win32ContextMenuItem(this, cmControl.MenuItems);
+        newItem.ID = win32ContextMenuDataItem.ID;
+        newItem.Owner = cmControl;
+        newItem.Label = win32ContextMenuDataItem.Label;
+        newItem.CommandString = win32ContextMenuDataItem.CommandString;
+        newItem.Icon = win32ContextMenuDataItem.Icon;
+        newItem.IconBase64 = win32ContextMenuDataItem.IconBase64;
+        newItem.hSubmenu = win32ContextMenuDataItem.hSubmenu;
+        newItem.IContextMenu = this._ContextMenuComInterface3;
+        newItem.IsNewMenuItem = true;
+        newItem.Type = win32ContextMenuDataItem.Type;
+        cmControl.MenuItems.Add(newItem);
+      }
+
+      cmControl.Placement = PlacementMode.Bottom;
+      cmControl.PlacementTarget = element;
+      cmControl.IsOpen = true;
+
 
     }
 
@@ -217,13 +267,9 @@ namespace ShellControls.ShellContextMenu {
     }
 
     public List<IntPtr> _BitmapHandles = new List<IntPtr>();
-    public Task<List<Win32ContextMenuDataItem>> EnumMenuItems(IntPtr hMenu, Func<String, Boolean>? itemFilter, Boolean isNewItems = false) {
-      return Task<List<Win32ContextMenuDataItem>>.Factory.StartNew((() => {
-        //while (true) {
-        //  Thread.Sleep(1);
-        //  System.Windows.Forms.Application.DoEvents();
-        //  return new List<Win32ContextMenuDataItem>();
-        //}
+    public List<Win32ContextMenuDataItem> EnumMenuItems(IntPtr hMenu, Func<String, Boolean>? itemFilter, Boolean isNewItems = false) {
+      //return Task<List<Win32ContextMenuDataItem>>.Factory.StartNew(
+      //  () => {
         var menuItemsResult = new List<Win32ContextMenuDataItem>();
         var itemCount = User32.GetMenuItemCount(hMenu);
         var mii = new MENUITEMINFO();
@@ -265,14 +311,21 @@ namespace ShellControls.ShellContextMenu {
             }
 
             if (mii.hbmpItem != IntPtr.Zero && !Enum.IsDefined(typeof(HBITMAP_HMENU), ((IntPtr)mii.hbmpItem).ToInt64())) {
-              Gdi32.ConvertPixelByPixel(mii.hbmpItem, out var width, out var height);
+              //Gdi32.ConvertPixelByPixel(mii.hbmpItem, out var width, out var height);
+
+              mii.hbmpItem = Gdi32.RenderHBitmap(mii.hbmpItem);
+
               Application.Current.Dispatcher.Invoke(DispatcherPriority.Render, (Action)(async () => {
-                var icon = Imaging.CreateBitmapSourceFromHBitmap(mii.hbmpItem, IntPtr.Zero, Int32Rect.Empty,
-                  BitmapSizeOptions.FromEmptyOptions());
-                icon.Freeze();
-                menuItem.Icon = icon;
+                if (mii.hbmpItem != IntPtr.Zero) {
+                  var icon = Imaging.CreateBitmapSourceFromHBitmap(mii.hbmpItem, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                  icon.Freeze();
+                  menuItem.Icon = icon;
+                  Gdi32.DeleteObject(mii.hbmpItem);
+                }
               }));
-              Gdi32.DeleteObject(mii.hbmpItem);
+              if (mii.hbmpItem != IntPtr.Zero) {
+                Gdi32.DeleteObject(mii.hbmpItem);
+              }
               //using (var bitmap = Gdi32.GetBitmapFromHBitmap(mii.hbmpItem)) {
               //  if (bitmap != null) {
               //    byte[] bitmapData = (byte[])new ImageConverter().ConvertTo(bitmap, typeof(byte[]));
@@ -292,7 +345,7 @@ namespace ShellControls.ShellContextMenu {
                 // Only for dynamic/owner drawn? (open with, etc)
               }
 
-              var itemsSub = EnumMenuItems(mii.hSubMenu, itemFilter, menuItem.CommandString?.ToLowerInvariant() == "new").Result;
+              var itemsSub = EnumMenuItems(mii.hSubMenu, itemFilter, menuItem.CommandString?.ToLowerInvariant() == "new");
               //Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, (ThreadStart)(async () => {
               menuItem.SubItems = itemsSub;
               //}));
@@ -340,9 +393,79 @@ namespace ShellControls.ShellContextMenu {
 
         return menuItemsResult;
         //menuItemsResult.AddRange(menuItemResultList);
-      }), CancellationToken.None
-        , TaskCreationOptions.None
-        , TaskScheduler.FromCurrentSynchronizationContext());
+      //}, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    public List<Win32ContextMenuDataItem> EnumNewMenuItems(IntPtr hMenu, Func<String, Boolean>? itemFilter) {
+      var shouldBreak = false;
+      var menuItemsResult = new List<Win32ContextMenuDataItem>();
+      var itemCount = User32.GetMenuItemCount(hMenu);
+      var mii = new MENUITEMINFO();
+      mii.cbSize = (uint)Marshal.SizeOf(mii);
+      mii.fMask = MIIM.MIIM_FTYPE | MIIM.MIIM_ID | MIIM.MIIM_SUBMENU;
+      for (uint ii = 0; ii < itemCount; ii++) {
+        mii.dwTypeData = Marshal.AllocCoTaskMem(512);
+        mii.cch = 511; // https://devblogs.microsoft.com/oldnewthing/20040928-00/?p=37723
+        var retval = User32.GetMenuItemInfo(hMenu, ii, true, ref mii);
+        if (!retval) {
+          continue;
+        }
+
+        var type = (MenuItemType)mii.fType;
+        var id = (int)(mii.wID - 1);
+        if (type == MenuItemType.MFT_STRING) {
+          mii.dwTypeData.FreeCotask();
+          IntPtr pszName = Marshal.AllocCoTaskMem(512);
+          this._ContextMenuComInterface3.GetCommandString((IntPtr)(mii.wID - 1), 0x00000004, IntPtr.Zero, pszName, 511);
+          var commandString = Marshal.PtrToStringAuto(pszName);
+          Marshal.FreeCoTaskMem(pszName);
+          if (commandString?.ToLowerInvariant() != "new") {
+            continue;
+          }
+
+          shouldBreak = true;
+
+          if (mii.hSubMenu != IntPtr.Zero) {
+            try {
+              var ptr = IntPtr.Zero;
+              //if (!menuItem.Label.ToLower().Contains("rar")) {
+              this._ContextMenuComInterface3.HandleMenuMsg(279, (IntPtr)mii.hSubMenu, new IntPtr(ii));
+              //}
+            } catch (NotImplementedException) {
+              // Only for dynamic/owner drawn? (open with, etc)
+            }
+
+            var itemsSub = EnumMenuItems(mii.hSubMenu, itemFilter, true);
+            //Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, (ThreadStart)(async () => {
+            menuItemsResult = itemsSub;
+            //}));
+          }
+
+        }
+
+        if (mii.hbmpItem != IntPtr.Zero) {
+          this._BitmapHandles.Add(mii.hbmpItem);
+        }
+
+        if (mii.hbmpChecked != IntPtr.Zero) {
+          this._BitmapHandles.Add(mii.hbmpChecked);
+        }
+
+        if (mii.hbmpUnchecked != IntPtr.Zero) {
+          this._BitmapHandles.Add(mii.hbmpUnchecked);
+        }
+
+        if (mii.dwItemData != IntPtr.Zero) {
+          this._BitmapHandles.Add(mii.dwItemData);
+        }
+
+        if (shouldBreak) {
+          break;
+        }
+
+      }
+
+      return menuItemsResult;
     }
   }
 }

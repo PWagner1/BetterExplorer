@@ -12,10 +12,12 @@ using ShellControls.ShellListView;
 using Brushes = System.Drawing.Brushes;
 using Color = System.Drawing.Color;
 using ScrollEventArgs = System.Windows.Forms.ScrollEventArgs;
+using System.ComponentModel;
 
 namespace ShellControls;
 public class VscrollBarEx : UserControl {
-  public event EventHandler<ScrollEventArgs> OnScroll; 
+  public event EventHandler<ScrollEventArgs> OnScroll;
+  [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
   public SCROLLINFO ScrollInfo { get; set; }
   public VscrollBarEx() {
     this.SetStyle(
@@ -44,6 +46,7 @@ public class VscrollBarEx : UserControl {
     brush.Dispose();
     base.OnPaint(e);
   }
+  [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
   public Int32 Value { get; set; }
   protected override void OnMouseMove(MouseEventArgs e) {
     if (e.Button == MouseButtons.Left) {

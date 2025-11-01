@@ -20,12 +20,18 @@ public class TabIndexConverter : IValueConverter
     var count = items?.Count() ?? 0;
 
     var index = items?.IndexOf(tabItem) ?? -2;
-    if (index == 0)
-      return "First";
-    else if (count - 1 == index || index == (tabItem.Parent as TabControl)?.SelectedIndex - 1)
-      return "Last";
-    else
-      return "";
+    if (index == -1 || index == -2) {
+      return String.Empty;
+    }
+
+    if (index < count - 1) {
+      var nextItem = items[index + 1];
+      if (nextItem != null && (nextItem.IsSelected || nextItem.IsMouseOver)) {
+        return "Collapse";
+      }
+    }
+
+    return String.Empty;
   }
 
   public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

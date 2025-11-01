@@ -17,7 +17,7 @@
   <!--
         {DynamicResource {x:Static SystemColors.ControlTextBrushKey}}
     -->
-  <sys:UInt32 x:Key="SystemAcrylicTint">0x02292929</sys:UInt32>
+  <sys:UInt32 x:Key="SystemAcrylicTint">0x000000</sys:UInt32>
   <Color x:Key="ApplicationBackgroundColor">#202020</Color>
   <Color x:Key="ListViewBackgroundColor">#151515</Color>
 
@@ -70,8 +70,8 @@
 
   <Color x:Key="AccentFillColorDisabled">#28FFFFFF</Color>
 
-  <Color x:Key="ControlStrokeColorDefault">#12FFFFFF</Color>
-  <Color x:Key="ControlStrokeColorSecondary">#14FFFFFF</Color>
+  <Color x:Key="ControlStrokeColorDefault">#21FFFFFF</Color>
+  <Color x:Key="ControlStrokeColorSecondary">#23FFFFFF</Color>
   <Color x:Key="ControlStrokeColorSecondary2">#9DFFFFFF</Color>
   <Color x:Key="ControlStrokeColorOnAccentDefault">#14FFFFFF</Color>
   <Color x:Key="ControlStrokeColorOnAccentSecondary">#23000000</Color>

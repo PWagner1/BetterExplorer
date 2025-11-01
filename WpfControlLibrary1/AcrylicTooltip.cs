@@ -42,14 +42,16 @@ namespace BetterExplorerControls {
           hWnd.CompositionTarget.BackgroundColor = Colors.Transparent;
         }
 
-        var nonClientArea = new Dwmapi.MARGINS(new Thickness(0, 1, 0, 0));
-        Dwmapi.DwmExtendFrameIntoClientArea(hWnd.Handle, ref nonClientArea);
+        var nonClientArea = new Dwmapi.MARGINS(new Thickness(0));
         AcrylicHelper.SetBlur(hWnd.Handle, AcrylicHelper.AccentFlagsType.Window,
           AcrylicHelper.AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND,
           (uint)Application.Current.Resources["SystemAcrylicTint"]);
         var preference = (Int32)Dwmapi.DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUNDSMALL;
         Dwmapi.DwmSetWindowAttribute(hWnd.Handle, Dwmapi.DWMWINDOWATTRIBUTE.DWMWA_WINDOW_CORNER_PREFERENCE,
           ref preference, sizeof(uint));
+        var pv = 2;
+        Dwmapi.DwmSetWindowAttribute(hWnd.Handle, Dwmapi.DWMWINDOWATTRIBUTE.DWMWA_TRANSITIONS_FORCEDISABLED, ref pv, sizeof(uint));
+        Dwmapi.DwmExtendFrameIntoClientArea(hWnd.Handle, ref nonClientArea);
       }
     }
   }

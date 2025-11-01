@@ -48,6 +48,7 @@ namespace BExplorer.Shell {
     public static PROPERTYKEY DriveFreeSpace = new PROPERTYKEY() { fmtid = Guid.Parse("9b174b35-40ff-11d2-a27e-00c04fc30871"), pid = 7 };
     public static PROPERTYKEY DateModified = new PROPERTYKEY() { fmtid = Guid.Parse("b725f130-47ef-101a-a5f1-02608c9eebac"), pid = 14 };
     public static PROPERTYKEY PerceivedType = new PROPERTYKEY() { fmtid = Guid.Parse("28636aa6-953d-11d2-b5d6-00c04fd918d0"), pid = 9 };
+    public static PROPERTYKEY StorageSyncStatus = new PROPERTYKEY() { fmtid = Guid.Parse("e77e90df-6271-4f5b-834f-2dd1f245dda4"), pid = 3 };
 
   }
 
